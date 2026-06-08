@@ -1,1 +1,215 @@
-// app global css
+// ─── فونت وزیرمتن ─────────────────────────────────────────────────────────────
+@import 'vazirmatn/Vazirmatn-font-face.css';
+
+// ─── متغیرهای سراسری ──────────────────────────────────────────────────────────
+:root {
+  --green-50:  #f0faf6;
+  --green-100: #d6f0e5;
+  --green-200: #a8dcc5;
+  --green-400: #4caf87;
+  --green-600: #1e8a5e;
+  --green-700: #166b49;
+  --green-800: #0f4f35;
+  --green-900: #0a3324;
+
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  --amber-400: #fbbf24;
+  --amber-500: #f59e0b;
+  --red-500:   #ef4444;
+  --blue-500:  #3b82f6;
+  --purple-500:#8b5cf6;
+
+  --sidebar-bg:     #0f2d1f;
+  --sidebar-width:  260px;
+  --header-height:  64px;
+  --radius-s:  6px;
+  --radius-m:  10px;
+  --radius-l:  16px;
+  --radius-xl: 22px;
+}
+
+// ─── پایه ─────────────────────────────────────────────────────────────────────
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 14px; }
+
+body {
+  font-family: 'Vazirmatn', system-ui, sans-serif;
+  direction: rtl;
+  background: var(--slate-100);
+  color: var(--slate-800);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.65;
+}
+
+// ─── RTL برای Quasar ──────────────────────────────────────────────────────────
+// مهم: direction:rtl را روی q-layout و q-page-container نمی‌گذاریم
+// چون Quasar از margin/padding برای push کردن محتوا استفاده می‌کند
+// و RTL این محاسبات را خراب می‌کند.
+
+.q-drawer,
+.q-header,
+.q-toolbar,
+.q-dialog,
+.q-menu,
+.q-list,
+.q-item,
+.q-table,
+.q-form,
+.q-field {
+  font-family: 'Vazirmatn', sans-serif !important;
+}
+
+/* ─── کلیدی‌ترین fix برای RTL + right drawer ───────────────────────────────
+   Quasar در LTR برای right drawer از padding-left روی q-page-container
+   استفاده می‌کند. در RTL این padding اشتباه است.
+   ما padding-left را صفر و padding-right را برابر عرض drawer می‌کنیم.
+   ─────────────────────────────────────────────────────────────────────── */
+.q-page-container {
+  padding-left: 0 !important;
+  /* transition برای انیمیشن نرم باز/بسته شدن */
+  transition: padding-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* input ها در RTL */
+.q-field__native,
+.q-field__input,
+.q-field__prefix,
+.q-field__suffix {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+/* select dropdown */
+.q-menu { direction: rtl !important; }
+
+/* dialog */
+.q-dialog__inner { direction: rtl !important; }
+.q-dialog__title { background: #e8f5ee; color: darkred; text-align: center; margin-bottom: 10px }
+
+// ─── اسکرول‌بار ───────────────────────────────────────────────────────────────
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--green-400); }
+
+// ─── Quasar overrides ─────────────────────────────────────────────────────────
+.q-field--outlined .q-field__control {
+  border-radius: var(--radius-m) !important;
+  background: #fff !important;
+}
+.q-field--outlined.q-field--focused .q-field__control {
+  border-color: var(--green-600) !important;
+  box-shadow: 0 0 0 3px rgba(30,138,94,.12) !important;
+}
+.q-field__label { font-family: 'Vazirmatn', sans-serif !important; }
+.q-field__native, .q-field__input {
+  font-family: 'Vazirmatn', sans-serif !important;
+}
+
+.q-btn {
+  font-family: 'Vazirmatn', sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-radius: var(--radius-m) !important;
+  transition: all .18s ease !important;
+}
+.q-btn[color="primary"], .q-btn.bg-primary {
+  background: var(--green-600) !important;
+  &:hover { background: var(--green-700) !important; }
+}
+
+.q-card {
+  border-radius: var(--radius-l) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04) !important;
+  border: 1px solid var(--slate-200) !important;
+}
+.q-dialog .q-card {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,.18) !important;
+}
+
+.q-table {
+  font-family: 'Vazirmatn', sans-serif !important;
+  th {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: var(--slate-500) !important;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    background: var(--slate-50) !important;
+    border-bottom: 2px solid var(--slate-200) !important;
+  }
+  td { border-bottom: 1px solid var(--slate-100) !important; }
+  tbody tr:hover td { background: var(--green-50) !important; }
+}
+
+.q-badge {
+  font-family: 'Vazirmatn', sans-serif !important;
+  font-weight: 600 !important;
+  border-radius: var(--radius-s) !important;
+  padding: 3px 9px !important;
+  font-size: 11px !important;
+}
+
+.q-separator { background: var(--slate-200) !important; }
+.q-tabs__indicator { height: 3px !important; border-radius: 99px !important; }
+.q-item { border-radius: var(--radius-m) !important; }
+.q-item__label { font-family: 'Vazirmatn', sans-serif !important; }
+.q-select__dropdown-icon { color: var(--slate-400) !important; }
+.q-notification { font-family: 'Vazirmatn', sans-serif !important; border-radius: var(--radius-m) !important; }
+
+// ─── کلاس‌های کمکی ────────────────────────────────────────────────────────────
+.page-root { max-width: 1440px; margin: 0 auto; }
+
+.card-base {
+  background: #fff;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--slate-200);
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+
+.badge-success { background: var(--green-100) !important; color: var(--green-700) !important; }
+.badge-danger  { background: #fee2e2 !important; color: #b91c1c !important; }
+.badge-warning { background: #fef3c7 !important; color: #92400e !important; }
+.badge-info    { background: #dbeafe !important; color: #1d4ed8 !important; }
+.badge-neutral { background: var(--slate-100) !important; color: var(--slate-600) !important; }
+
+.progress-track {
+  height: 6px;
+  background: var(--slate-200);
+  border-radius: 99px;
+  overflow: hidden;
+  .progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--green-600), var(--green-400));
+    transition: width .4s ease;
+  }
+
+  .empty-fields-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+
+    p {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .hint-text {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+  }
+}

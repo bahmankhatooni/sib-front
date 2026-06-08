@@ -1,0 +1,228 @@
+// ─── استایل‌های مشترک همه صفحات — RTL ───────────────────────────────────────
+
+// ─── نوار فیلتر ───────────────────────────────────────────────────────────────
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  direction: rtl;
+}
+.filter-inputs { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.filter-stats  { display: flex; align-items: center; gap: 8px; }
+
+.stat-chip {
+  font-size: 12px; font-weight: 600;
+  color: #1e8a5e; background: #f0faf6;
+  padding: 4px 12px; border-radius: 6px;
+  border: 1px solid #c6e8d8;
+}
+.stat-chip--green {
+  background: #ecfdf5 !important;
+  color: #16a34a !important;
+  border-color: #bbf7d0 !important;
+}
+
+// ─── کارت جدول — بوردر سبز ────────────────────────────────────────────────────
+.table-card {
+  background: #fff;
+  border: 1.5px solid #c6e8d8;   /* بوردر سبز */
+  border-radius: 12px;
+  overflow: hidden;
+  direction: rtl;
+  box-shadow: 0 1px 4px rgba(30,138,94,.06);
+}
+
+// ─── جدول RTL ─────────────────────────────────────────────────────────────────
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Vazirmatn', sans-serif;
+  direction: rtl;
+
+  th {
+    text-align: center;           /* وسط‌چین */
+    padding: 11px 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #475569;
+    background: #f0faf6;
+    border-bottom: 2px solid #c6e8d8;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  td {
+    padding: 11px 12px;
+    font-size: 13px;
+    color: #334155;
+    border-bottom: 1px solid #f0f9f4;
+    vertical-align: middle;
+    text-align: center;           /* وسط‌چین */
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f8fdfb; }
+}
+
+// ─── سلول‌های خاص ─────────────────────────────────────────────────────────────
+.row-num   { color: #cbd5e1; font-size: 12px; font-weight: 600; width: 36px; text-align: center !important; }
+.row-name  { font-weight: 600; color: #1e293b; }
+.desc-cell { color: #64748b; font-size: 12.5px; max-width: 200px; }
+.date-cell { color: #94a3b8; font-size: 12px; white-space: nowrap; }
+.row-meta  { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+.code-chip {
+  font-family: monospace;
+  font-size: 11.5px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+  direction: ltr;
+  display: inline-block;
+}
+.code-sm { font-size: 10.5px; padding: 1px 5px; }
+
+// ─── badge وضعیت ──────────────────────────────────────────────────────────────
+.status-badge {
+  font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 5px;
+  white-space: nowrap; display: inline-block;
+}
+.badge-active   { background: #ecfdf5; color: #16a34a; }
+.badge-inactive { background: #fef2f2; color: #dc2626; }
+.badge-done     { background: #ecfdf5; color: #16a34a; }
+.badge-progress { background: #eff6ff; color: #2563eb; }
+.badge-pending  { background: #f1f5f9; color: #64748b; }
+.badge-warning  { background: #fef3c7; color: #92400e; }
+.badge-info     { background: #eff6ff; color: #1d4ed8; }
+.badge-neutral  { background: #f1f5f9; color: #64748b; }
+
+// ─── دکمه‌های عملیات ──────────────────────────────────────────────────────────
+.action-btns {
+  display: flex; align-items: center; gap: 3px;
+  justify-content: center;        /* وسط‌چین */
+}
+.act-btn {
+  width: 28px; height: 28px;
+  border: none; border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; background: transparent;
+}
+.act-edit   { color: #3b82f6; &:hover { background: #eff6ff; } }
+.act-delete { color: #ef4444; &:hover { background: #fef2f2; } }
+.act-view   { color: #8b5cf6; &:hover { background: #f5f3ff; } }
+.act-assign { color: #f59e0b; &:hover { background: #fef3c7; } }
+
+// ─── ردیف خالی ────────────────────────────────────────────────────────────────
+.empty-row {
+  text-align: center !important;
+  padding: 44px 16px !important;
+  color: #94a3b8;
+  p { margin-top: 10px; font-size: 14px; }
+}
+
+// ─── نوار پیشرفت ──────────────────────────────────────────────────────────────
+.prog-wrap { display: flex; align-items: center; gap: 7px; min-width: 110px; }
+.prog-track {
+  flex: 1; height: 5px; background: #e8f5ee;
+  border-radius: 99px; overflow: hidden;
+}
+.prog-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #1e8a5e, #4caf87);
+  transition: width .4s ease;
+}
+.prog-text { font-size: 11px; font-weight: 700; color: #1e8a5e; min-width: 32px; }
+
+// ─── دیالوگ فرم — بوردر سبز ───────────────────────────────────────────────────
+.form-dialog {
+  background: #fff;
+  border-radius: 16px;
+  width: 520px;
+  max-width: 95vw;
+  box-shadow: 0 16px 48px rgba(0,0,0,.14);
+  border: 1.5px solid #c6e8d8;   /* بوردر سبز */
+  overflow: hidden;
+  direction: rtl;
+}
+
+.form-dialog-lg {
+  background: #fff;
+  border-radius: 16px;
+  width: 660px;
+  max-width: 95vw;
+  box-shadow: 0 16px 48px rgba(0,0,0,.14);
+  border: 1.5px solid #c6e8d8;   /* بوردر سبز */
+  overflow: hidden;
+  direction: rtl;
+}
+
+.dialog-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid #e8f5ee;
+  background: #f8fdfb;
+  direction: rtl;
+  h3 { font-size: 16px; font-weight: 700; color: #0f172a; }
+}
+.dialog-close {
+  width: 30px; height: 30px;
+  border: none; background: #f1f5f9;
+  border-radius: 7px; cursor: pointer; color: #64748b;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s; flex-shrink: 0;
+  &:hover { background: #e2e8f0; }
+}
+
+.dialog-body {
+  padding: 18px 22px;
+  display: flex; flex-direction: column; gap: 14px;
+  direction: rtl;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
+.dialog-foot {
+  display: flex; align-items: center; justify-content: flex-start;
+  gap: 8px; padding: 14px 22px;
+  border-top: 1px solid #e8f5ee;
+  background: #f8fdfb;
+  direction: rtl;
+}
+
+// ─── فرم‌های داخل دیالوگ ──────────────────────────────────────────────────────
+.form-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; direction: rtl;
+}
+
+.form-group {
+  display: flex; flex-direction: column; gap: 5px;
+  direction: rtl;
+  label { font-size: 12.5px; font-weight: 600; color: #334155; text-align: right; }
+}
+.req { color: #ef4444; }
+
+// ─── لیست‌های داخل دیالوگ ─────────────────────────────────────────────────────
+.sub-list { display: flex; flex-direction: column; gap: 7px; }
+.sub-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 9px;
+  background: #f8fdfb; border: 1px solid #d1ead9;
+}
+.sub-icon {
+  width: 30px; height: 30px; border-radius: 7px;
+  background: #ecfdf5; color: #1e8a5e;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sub-icon--blue  { background: #eff6ff; color: #3b82f6; }
+.sub-icon--green { background: #ecfdf5; color: #16a34a; }
+.sub-icon--grey  { background: #f1f5f9; color: #94a3b8; }
+.sub-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.sub-name { font-size: 13px; font-weight: 600; color: #1e293b; }
+.sub-meta { font-size: 11px; color: #94a3b8; }
