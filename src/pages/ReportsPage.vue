@@ -2,9 +2,16 @@
 <template>
   <div class="page-root">
 
-    <PageHeader title="گزارش‌گیری" subtitle="گزارش‌های پیشرفته از برنامه‌های عملیاتی و خروجی Excel" icon="insert_chart">
-      <q-btn unelevated color="primary" icon="download" label="خروجی Excel" @click="exportExcel" />
-      <q-btn unelevated color="secondary" icon="print" label="چاپ" @click="printReport" class="q-mr-sm" />
+    <PageHeader title="گزارش‌گیری" subtitle="گزارش‌های پیشرفته از کاربرگ‌ها و خروجی Excel" icon="insert_chart">
+      <q-btn 
+        unelevated 
+        color="primary" 
+        icon="download" 
+        label="خروجی Excel" 
+        @click="exportExcel" 
+        :loading="exporting" 
+        :disable="forms.length === 0"
+      />
     </PageHeader>
 
     <!-- فیلترها -->
@@ -14,74 +21,155 @@
         فیلترهای گزارش
       </div>
       <div class="filter-grid">
-        <div class="form-group">
-          <label>نوع گزارش</label>
-          <q-select v-model="reportType" outlined dense :options="reportTypes" />
-        </div>
-        <div class="form-group">
-          <label>سال</label>
-          <q-select v-model="yearFilter" outlined dense :options="['1403','1404','1405']" clearable />
-        </div>
-        <div class="form-group">
+
+        <div class="form-group" v-if="isAdmin">
           <label>واحد</label>
-          <q-select v-model="unitFilter" outlined dense :options="unitOpts" clearable />
+          <q-select 
+            v-model="filters.unit_id" 
+            outlined 
+            dense 
+            :options="unitOptions" 
+            option-value="id"
+            option-label="name"
+            emit-value
+            map-options
+            clearable
+          />
+        </div>
+        <div class="form-group">
+          <label>هدف</label>
+          <q-select 
+            v-model="filters.target_id" 
+            outlined 
+            dense 
+            :options="targetOptions" 
+            option-value="id"
+            option-label="title"
+            emit-value
+            map-options
+            clearable
+          />
+        </div>
+        <div class="form-group">
+          <label>برنامه</label>
+          <q-select 
+            v-model="filters.program_id" 
+            outlined 
+            dense 
+            :options="programOptions" 
+            option-value="id"
+            option-label="title"
+            emit-value
+            map-options
+            clearable
+          />
         </div>
         <div class="form-group">
           <label>وضعیت</label>
-          <q-select v-model="statusFilter" outlined dense :options="['در حال اجرا','اتمام یافته','متوقف شده']" clearable />
+          <q-select 
+            v-model="filters.is_completed" 
+            outlined 
+            dense 
+            :options="statusOptions"
+            clearable
+          />
+        </div>
+        <div class="form-group">
+          <label>جستجو</label>
+          <q-input 
+            v-model="filters.search" 
+            outlined 
+            dense 
+            placeholder="جستجو در کد کاربرگ..."
+            clearable
+          />
         </div>
       </div>
       <div class="filter-actions">
-        <q-btn unelevated color="primary" icon="search" label="ایجاد گزارش" @click="generate" />
+        <q-btn 
+          unelevated 
+          color="primary" 
+          icon="search" 
+          label="ایجاد گزارش" 
+          @click="loadReport" 
+          :loading="loading"
+        />
         <q-btn flat icon="refresh" label="پاک کردن فیلترها" @click="clearFilters" />
       </div>
     </div>
 
     <!-- کارت‌های خلاصه -->
-    <div class="summary-grid">
-      <div class="summary-card" v-for="s in summaryCards" :key="s.label">
-        <div class="summary-icon" :style="{ background: s.bg }">
-          <q-icon :name="s.icon" size="20px" :style="{ color: s.color }" />
+    <div class="summary-grid" v-if="statistics">
+      <div class="summary-card">
+        <div class="summary-icon" style="background: #ecfdf5">
+          <q-icon name="description" size="20px" style="color: #1e8a5e" />
         </div>
         <div class="summary-body">
-          <span class="summary-label">{{ s.label }}</span>
-          <span class="summary-value">{{ s.value }}</span>
+          <span class="summary-label">کل کاربرگ‌ها</span>
+          <span class="summary-value">{{ statistics.summary.total_forms }}</span>
         </div>
-        <div class="summary-trend" :class="s.up ? 'trend-up' : 'trend-neutral'">
-          <q-icon :name="s.up ? 'trending_up' : 'remove'" size="12px" />
-          {{ s.trend }}
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-icon" style="background: #f0fdf4">
+          <q-icon name="task_alt" size="20px" style="color: #16a34a" />
+        </div>
+        <div class="summary-body">
+          <span class="summary-label">تکمیل شده</span>
+          <span class="summary-value">{{ statistics.summary.completed_forms }}</span>
+        </div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-icon" style="background: #fff7ed">
+          <q-icon name="pending_actions" size="20px" style="color: #f59e0b" />
+        </div>
+        <div class="summary-body">
+          <span class="summary-label">در انتظار تکمیل</span>
+          <span class="summary-value">{{ statistics.summary.incomplete_forms }}</span>
+        </div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-icon" style="background: #eff6ff">
+          <q-icon name="trending_up" size="20px" style="color: #3b82f6" />
+        </div>
+        <div class="summary-body">
+          <span class="summary-label">درصد تکمیل</span>
+          <span class="summary-value">{{ statistics.summary.completion_percentage }}%</span>
         </div>
       </div>
     </div>
 
     <!-- نمودارها -->
-    <div class="charts-row">
+    <div class="charts-row" v-if="statistics">
       <div class="chart-card chart-card--wide">
         <div class="card-head">
           <div>
-            <h3 class="card-title">پیشرفت برنامه‌ها بر اساس واحد</h3>
-            <p class="card-sub">مقایسه درصد پیشرفت در واحدهای مختلف</p>
+            <h3 class="card-title">تعداد کاربرگ‌ها بر اساس واحد</h3>
+            <p class="card-sub">مقایسه تعداد کاربرگ‌ها در واحدهای مختلف</p>
           </div>
         </div>
         <div class="chart-wrap">
           <canvas ref="barChart"></canvas>
         </div>
       </div>
+      
       <div class="chart-card chart-card--narrow">
         <div class="card-head">
           <div>
-            <h3 class="card-title">توزیع وضعیت</h3>
-            <p class="card-sub">فعالیت‌ها بر اساس وضعیت</p>
+            <h3 class="card-title">توزیع بر اساس اهداف</h3>
+            <p class="card-sub">کاربرگ‌ها بر اساس هدف</p>
           </div>
         </div>
         <div class="donut-wrap">
           <canvas ref="donutChart"></canvas>
         </div>
         <div class="donut-legend">
-          <div class="donut-legend-item" v-for="d in donutData" :key="d.label">
-            <span class="donut-dot" :style="{ background: d.color }"></span>
-            <span class="donut-label">{{ d.label }}</span>
-            <span class="donut-val">{{ d.value }}</span>
+          <div class="donut-legend-item" v-for="target in statistics.by_target.slice(0, 5)" :key="target.id">
+            <span class="donut-dot" :style="{ background: getTargetColor(target.id) }"></span>
+            <span class="donut-label">{{ target.code }}: {{ truncateText(target.title, 20) }}</span>
+            <span class="donut-val">{{ target.total_forms }}</span>
           </div>
         </div>
       </div>
@@ -91,190 +179,650 @@
     <div class="table-card">
       <div class="table-head-bar">
         <div>
-          <h3 class="card-title">گزارش تفصیلی</h3>
-          <p class="card-sub">جزئیات برنامه‌ها، اقدامات و فعالیت‌ها</p>
+          <h3 class="card-title">لیست کاربرگ‌ها</h3>
+          <p class="card-sub">{{ forms.length }} کاربرگ یافت شد</p>
         </div>
-        <div class="tab-btns">
-          <button
-            v-for="t in tabs" :key="t.key"
-            class="tab-btn"
-            :class="{ 'tab-btn--active': activeTab === t.key }"
-            @click="activeTab = t.key"
-          >{{ t.label }}</button>
+        <div class="table-actions">
+          <q-btn 
+            flat 
+            dense 
+            icon="refresh" 
+            @click="loadReport"
+            :loading="loading"
+          />
         </div>
       </div>
 
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th v-for="col in currentCols" :key="col.key">{{ col.label }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, i) in currentData" :key="i">
-            <td v-for="col in currentCols" :key="col.key">
-              <template v-if="col.key === 'progress'">
-                <div class="prog-wrap">
-                  <div class="prog-track"><div class="prog-fill" :style="{ width: row[col.key] + '%' }"></div></div>
-                  <span class="prog-text">{{ row[col.key] }}%</span>
-                </div>
-              </template>
-              <template v-else-if="col.key === 'status'">
-                <span class="status-badge" :class="statusClass(row[col.key])">{{ row[col.key] }}</span>
-              </template>
-              <template v-else-if="col.key === 'isCompleted'">
-                <span class="status-badge" :class="row[col.key] ? 'badge-active' : 'badge-pending'">
-                  {{ row[col.key] ? 'انجام شده' : 'انجام نشده' }}
-                </span>
-              </template>
-              <template v-else>{{ row[col.key] || '—' }}</template>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <q-table
+        :rows="forms"
+        :columns="tableColumns"
+        row-key="id"
+        :loading="loading"
+        :rows-per-page-options="[10, 25, 50]"
+        rows-per-page-label="تعداد در صفحه:"
+        :no-data-label="loading ? 'در حال بارگذاری...' : 'کاربرگی یافت نشد'"
+        class="reports-table"
+      >
+        <template v-slot:body-cell-code="props">
+          <q-td :props="props">
+            <q-btn
+              flat
+              dense
+              color="primary"
+              :label="props.value"
+              @click="viewFormDetails(props.row.id)"
+              class="code-link"
+            />
+          </q-td>
+        </template>
+
+        <template v-slot:body-cell-is_completed="props">
+          <q-td :props="props">
+            <q-badge 
+              :color="props.value ? 'positive' : 'warning'" 
+              :label="props.value ? 'تکمیل شده' : 'در انتظار'"
+            />
+          </q-td>
+        </template>
+
+        <template v-slot:body-cell-created_at="props">
+          <q-td :props="props">
+            {{ formatDate(props.value) }}
+          </q-td>
+        </template>
+
+        <template v-slot:body-cell-actions="props">
+          <q-td :props="props">
+            <div class="row-actions">
+              <q-btn
+                flat
+                dense
+                round
+                color="primary"
+                icon="visibility"
+                @click="viewFormDetails(props.row.id)"
+                size="sm"
+              >
+                <q-tooltip>مشاهده جزئیات</q-tooltip>
+              </q-btn>
+              <q-btn
+                flat
+                dense
+                round
+                color="positive"
+                icon="download"
+                @click="exportSingleForm(props.row.id, props.row.code)"
+                size="sm"
+              >
+                <q-tooltip>دانلود Excel</q-tooltip>
+              </q-btn>
+            </div>
+          </q-td>
+        </template>
+      </q-table>
     </div>
+
+    <!-- دیالوگ جزئیات کاربرگ -->
+    <q-dialog v-model="showDetailsDialog" maximized>
+      <q-card class="details-dialog">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">جزئیات کاربرگ {{ selectedForm?.code }}</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="details-content" v-if="selectedForm">
+          <!-- اطلاعات کلی -->
+          <div class="details-section">
+            <h4>اطلاعات کلی</h4>
+            <div class="info-grid">
+              <div class="info-item">
+                <label>کد کاربرگ:</label>
+                <span>{{ selectedForm.code }}</span>
+              </div>
+              <div class="info-item">
+                <label>واحد:</label>
+                <span>{{ selectedForm.unit?.name || '—' }}</span>
+              </div>
+              <div class="info-item">
+                <label>هدف:</label>
+                <span>{{ selectedForm.target?.code }} - {{ selectedForm.target?.title || '—' }}</span>
+              </div>
+              <div class="info-item">
+                <label>برنامه:</label>
+                <span>{{ selectedForm.program?.code }} - {{ selectedForm.program?.title || '—' }}</span>
+              </div>
+              <div class="info-item" v-if="selectedForm.task">
+                <label>اقدام:</label>
+                <span>{{ selectedForm.task.code }} - {{ selectedForm.task.title }}</span>
+              </div>
+              <div class="info-item" v-if="selectedForm.activity">
+                <label>فعالیت:</label>
+                <span>{{ selectedForm.activity.title }}</span>
+              </div>
+              <div class="info-item">
+                <label>وضعیت:</label>
+                <q-badge 
+                  :color="selectedForm.is_completed ? 'positive' : 'warning'" 
+                  :label="selectedForm.is_completed ? 'تکمیل شده' : 'در انتظار تکمیل'"
+                />
+              </div>
+              <div class="info-item">
+                <label>تاریخ ایجاد:</label>
+                <span>{{ formatDate(selectedForm.created_at) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- فیلدهای متغیر -->
+          <div class="details-section" v-if="selectedFormFields?.length">
+            <h4>فیلدهای متغیر</h4>
+            <div class="fields-grid">
+              <div 
+                v-for="field in selectedFormFields" 
+                :key="field.id"
+                class="field-item"
+              >
+                <label>{{ field.field_label }}:</label>
+                <div class="field-values">
+                  <div 
+                    v-for="value in field.values" 
+                    :key="value.id"
+                    class="field-value"
+                  >
+                    <span class="value">{{ value.field_value || '—' }}</span>
+                    <small class="creator">توسط: {{ value.created_by }}</small>
+                  </div>
+                  <div v-if="!field.values.length" class="no-value">مقدار ثبت نشده</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right" class="details-actions">
+          <q-btn
+            unelevated
+            color="positive"
+            icon="download"
+            label="دانلود Excel"
+            @click="exportSingleForm(selectedForm.id, selectedForm.code)"
+            v-if="selectedForm"
+          />
+          <q-btn flat label="بستن" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
 
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
+import { api } from 'boot/axios'
 import Chart from 'chart.js/auto'
 import PageHeader from 'components/PageHeader.vue'
+import { useAuthStore } from 'stores/auth'
 
 export default {
   components: { PageHeader },
   setup () {
     const $q = useQuasar()
-    const barChart   = ref(null)
+    const authStore = useAuthStore()
+    
+    // Refs
+    const barChart = ref(null)
     const donutChart = ref(null)
-    const reportType  = ref('گزارش پیشرفت')
-    const yearFilter  = ref('1404')
-    const unitFilter  = ref(null)
-    const statusFilter = ref(null)
-    const activeTab   = ref('targets')
-
-    const reportTypes = ['گزارش پیشرفت','گزارش عملکرد','گزارش مالی','گزارش کامل']
-    const unitOpts = ['واحد مالی','واحد فنی','واحد بازرگانی','واحد منابع انسانی','واحد حقوقی']
-
-    const summaryCards = [
-      { label:'کل اهداف',          value:5,  icon:'track_changes',  bg:'#ecfdf5', color:'#1e8a5e', trend:'+2',  up:true  },
-      { label:'برنامه‌های فعال',   value:8,  icon:'event_note',     bg:'#eff6ff', color:'#3b82f6', trend:'+3',  up:true  },
-      { label:'اقدامات در اجرا',   value:15, icon:'checklist_rtl',  bg:'#fff7ed', color:'#f59e0b', trend:'+5',  up:true  },
-      { label:'فعالیت انجام‌شده',  value:42, icon:'task_alt',       bg:'#f0fdf4', color:'#16a34a', trend:'68%', up:true  },
+    const loading = ref(false)
+    const exporting = ref(false)
+    const showDetailsDialog = ref(false)
+    
+    // Data
+    const statistics = ref(null)
+    const forms = ref([])
+    const units = ref([])
+    const targets = ref([])
+    const programs = ref([])
+    const selectedForm = ref(null)
+    const selectedFormFields = ref([])
+    
+    // Charts
+    let barChartInstance = null
+    let donutChartInstance = null
+    
+    // Computed
+    const isAdmin = computed(() => authStore.user?.role?.slug === 'ADMIN')
+    
+    // Filters
+    const filters = ref({
+      unit_id: null,
+      target_id: null,
+      program_id: null,
+      is_completed: null,
+      search: null,
+    })
+    
+    // Options
+    const unitOptions = computed(() => units.value)
+    const targetOptions = computed(() => targets.value)
+    const programOptions = computed(() => programs.value.filter(p => 
+      !filters.value.target_id || p.target_id === filters.value.target_id
+    ))
+    
+    const statusOptions = [
+      { label: 'تکمیل شده', value: true },
+      { label: 'در انتظار تکمیل', value: false }
     ]
-
-    const donutData = [
-      { label:'انجام شده',    color:'#1e8a5e', value:42 },
-      { label:'در حال انجام', color:'#3b82f6', value:25 },
-      { label:'انجام نشده',   color:'#e2e8f0', value:23 },
-    ]
-
-    const tabs = [
-      { key:'targets',    label:'اهداف'     },
-      { key:'programs',   label:'برنامه‌ها'  },
-      { key:'tasks',      label:'اقدامات'   },
-      { key:'activities', label:'فعالیت‌ها' },
-    ]
-
-    const tabData = {
-      targets: {
-        cols: [
-          { key:'code', label:'کد' }, { key:'title', label:'عنوان هدف' },
-          { key:'year', label:'سال' }, { key:'progress', label:'پیشرفت' },
-          { key:'programCount', label:'برنامه‌ها' },
-        ],
-        rows: [
-          { code:'T-001', title:'بهبود فرآیندهای اداری',             year:'1404', progress:75, programCount:3 },
-          { code:'T-002', title:'افزایش بهره‌وری نیروی انسانی',      year:'1404', progress:45, programCount:2 },
-          { code:'T-003', title:'توسعه زیرساخت‌های فناوری اطلاعات', year:'1404', progress:60, programCount:4 },
-        ]
+    
+    // Table columns
+    const tableColumns = [
+      {
+        name: 'code',
+        required: true,
+        label: 'کد کاربرگ',
+        align: 'left',
+        field: 'code',
+        sortable: true
       },
-      programs: {
-        cols: [
-          { key:'code', label:'کد' }, { key:'title', label:'عنوان برنامه' },
-          { key:'target', label:'هدف' }, { key:'progress', label:'پیشرفت' },
-          { key:'budget', label:'بودجه (م.ر)' }, { key:'taskCount', label:'اقدامات' },
-        ],
-        rows: [
-          { code:'P-001', title:'برنامه آموزش کارکنان',    target:'T-002', progress:80, budget:500,  taskCount:5 },
-          { code:'P-002', title:'برنامه ارزیابی عملکرد',   target:'T-002', progress:60, budget:300,  taskCount:4 },
-          { code:'P-003', title:'برنامه بهینه‌سازی فرآیند',target:'T-001', progress:90, budget:800,  taskCount:6 },
-        ]
+      {
+        name: 'unit',
+        label: 'واحد',
+        align: 'left',
+        field: row => row.unit?.name || '—',
+        sortable: true
       },
-      tasks: {
-        cols: [
-          { key:'code', label:'کد' }, { key:'title', label:'عنوان اقدام' },
-          { key:'program', label:'برنامه' }, { key:'progress', label:'پیشرفت' },
-          { key:'responsible', label:'مسئول' }, { key:'activityCount', label:'فعالیت‌ها' },
-        ],
-        rows: [
-          { code:'TASK-001', title:'تهیه محتوای آموزشی',    program:'P-001', progress:100, responsible:'مریم محمدی', activityCount:3 },
-          { code:'TASK-002', title:'برگزاری دوره‌های آموزشی',program:'P-001', progress:80,  responsible:'مریم محمدی', activityCount:5 },
-          { code:'TASK-003', title:'ارزیابی اثربخشی',        program:'P-001', progress:60,  responsible:'محمد جعفری', activityCount:2 },
-        ]
+      {
+        name: 'target',
+        label: 'هدف',
+        align: 'left',
+        field: row => `${row.target?.code || ''} - ${row.target?.title || '—'}`,
+        sortable: false
       },
-      activities: {
-        cols: [
-          { key:'code', label:'کد' }, { key:'title', label:'عنوان فعالیت' },
-          { key:'task', label:'اقدام' }, { key:'isCompleted', label:'وضعیت' },
-          { key:'dueDate', label:'مهلت' }, { key:'priority', label:'اولویت' },
-        ],
-        rows: [
-          { code:'ACT-001', title:'تهیه سرفصل‌های آموزشی',    task:'TASK-001', isCompleted:true,  dueDate:'1404/03/15', priority:'بالا'  },
-          { code:'ACT-002', title:'تهیه محتوای دوره مقدماتی', task:'TASK-001', isCompleted:true,  dueDate:'1404/03/30', priority:'بالا'  },
-          { code:'ACT-003', title:'تهیه محتوای دوره پیشرفته', task:'TASK-001', isCompleted:false, dueDate:'1404/04/15', priority:'متوسط' },
-        ]
+      {
+        name: 'program',
+        label: 'برنامه',
+        align: 'left',
+        field: row => `${row.program?.code || ''} - ${row.program?.title || '—'}`,
+        sortable: false
+      },
+      {
+        name: 'is_completed',
+        label: 'وضعیت',
+        align: 'center',
+        field: 'is_completed',
+        sortable: true
+      },
+      {
+        name: 'created_at',
+        label: 'تاریخ ایجاد',
+        align: 'left',
+        field: 'created_at',
+        sortable: true
+      },
+      {
+        name: 'actions',
+        label: 'عملیات',
+        align: 'center',
+        field: 'actions',
+        sortable: false
       }
-    }
-
-    const currentCols = computed(() => tabData[activeTab.value].cols)
-    const currentData = computed(() => tabData[activeTab.value].rows)
-
-    const statusClass = (s) => ({ 'در حال اجرا':'badge-progress', 'نزدیک به اتمام':'badge-done', 'اتمام یافته':'badge-active', 'متوقف شده':'badge-inactive' }[s] || 'badge-neutral')
-
-    const generate = () => $q.notify({ type:'positive', message:'گزارش با موفقیت ایجاد شد', position:'top' })
-    const clearFilters = () => { yearFilter.value = null; unitFilter.value = null; statusFilter.value = null }
-    const exportExcel = () => $q.notify({ type:'info', message:'در حال آماده‌سازی فایل Excel...', position:'top' })
-    const printReport = () => window.print()
-
-    onMounted(() => {
-      new Chart(barChart.value, {
-        type: 'bar',
-        data: {
-          labels: ['واحد مالی','واحد فنی','واحد بازرگانی','منابع انسانی','واحد حقوقی','واحد آموزش'],
-          datasets: [{
-            label: 'درصد پیشرفت',
-            data: [75, 45, 85, 60, 30, 70],
-            backgroundColor: (ctx) => {
-              const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 260)
-              g.addColorStop(0, '#1e8a5e'); g.addColorStop(1, '#4caf87'); return g
-            },
-            borderRadius: 6, borderSkipped: false,
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { beginAtZero:true, max:100, grid:{ color:'#f1f5f9' }, ticks:{ font:{ family:'Vazirmatn', size:11 }, color:'#94a3b8', callback: v => v+'%' } },
-            x: { grid:{ display:false }, ticks:{ font:{ family:'Vazirmatn', size:11 }, color:'#64748b' } }
+    ]
+    
+    // Methods
+    const loadInitialData = async () => {
+      try {
+        // Load units (if admin)
+        if (isAdmin.value) {
+          const unitsResponse = await api.get('/units')
+          if (unitsResponse.data.success) {
+            units.value = unitsResponse.data.data
           }
         }
+        
+        // Load targets
+        const targetsResponse = await api.get('/targets')
+        if (targetsResponse.data.success) {
+          targets.value = targetsResponse.data.data
+        }
+        
+        // Load programs
+        const programsResponse = await api.get('/programs')
+        if (programsResponse.data.success) {
+          programs.value = programsResponse.data.data
+        }
+      } catch (error) {
+        console.error('Error loading initial data:', error)
+        $q.notify({
+          type: 'negative',
+          message: 'خطا در بارگذاری اطلاعات اولیه',
+          position: 'top'
+        })
+      }
+    }
+    
+    const loadStatistics = async () => {
+      try {
+        const params = new URLSearchParams()
+        Object.entries(filters.value).forEach(([key, value]) => {
+          if (value !== null && value !== '') {
+            params.append(key, value)
+          }
+        })
+        
+        const response = await api.get(`/reports/statistics?${params}`)
+        if (response.data.success) {
+          statistics.value = response.data.data
+          updateCharts()
+        }
+      } catch (error) {
+        console.error('Error loading statistics:', error)
+        $q.notify({
+          type: 'negative',
+          message: 'خطا در بارگذاری آمار',
+          position: 'top'
+        })
+      }
+    }
+    
+    const loadForms = async () => {
+      try {
+        const params = new URLSearchParams()
+        Object.entries(filters.value).forEach(([key, value]) => {
+          if (value !== null && value !== '') {
+            params.append(key, value)
+          }
+        })
+        params.append('per_page', '100') // Load more items for report
+        
+        const response = await api.get(`/reports/list?${params}`)
+        if (response.data.success) {
+          forms.value = response.data.data
+        }
+      } catch (error) {
+        console.error('Error loading forms:', error)
+        $q.notify({
+          type: 'negative',
+          message: 'خطا در بارگذاری کاربرگ‌ها',
+          position: 'top'
+        })
+      }
+    }
+    
+    const loadReport = async () => {
+      loading.value = true
+      try {
+        await Promise.all([
+          loadStatistics(),
+          loadForms()
+        ])
+        $q.notify({
+          type: 'positive',
+          message: 'گزارش با موفقیت بارگذاری شد',
+          position: 'top'
+        })
+      } finally {
+        loading.value = false
+      }
+    }
+    
+    const clearFilters = () => {
+      Object.keys(filters.value).forEach(key => {
+        filters.value[key] = null
       })
-
-      new Chart(donutChart.value, {
-        type: 'doughnut',
-        data: {
-          labels: ['انجام شده','در حال انجام','انجام نشده'],
-          datasets: [{ data:[42,25,23], backgroundColor:['#1e8a5e','#3b82f6','#e2e8f0'], borderWidth:0, hoverOffset:4 }]
-        },
-        options: { responsive:true, maintainAspectRatio:false, cutout:'72%', plugins:{ legend:{ display:false } } }
-      })
+    }
+    
+    const exportExcel = async () => {
+      if (forms.value.length === 0) {
+        $q.notify({
+          type: 'warning',
+          message: 'هیچ کاربرگی برای خروجی یافت نشد',
+          position: 'top'
+        })
+        return
+      }
+      
+      exporting.value = true
+      try {
+        const params = new URLSearchParams()
+        Object.entries(filters.value).forEach(([key, value]) => {
+          if (value !== null && value !== '') {
+            params.append(key, value)
+          }
+        })
+        
+        const response = await api.get(`/reports/export?${params}`, {
+          responseType: 'blob'
+        })
+        
+        // Create download link
+        const url = window.URL.createObjectURL(new Blob([response.data]))
+        const link = document.createElement('a')
+        link.href = url
+        
+        const filename = `report_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`
+        link.setAttribute('download', filename)
+        
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(url)
+        
+        $q.notify({
+          type: 'positive',
+          message: 'فایل با موفقیت دانلود شد',
+          position: 'top'
+        })
+      } catch (error) {
+        console.error('Error exporting:', error)
+        $q.notify({
+          type: 'negative',
+          message: 'خطا در دانلود فایل',
+          position: 'top'
+        })
+      } finally {
+        exporting.value = false
+      }
+    }
+    
+    const exportSingleForm = async (formId, formCode) => {
+      try {
+        const response = await api.get(`/forms/${formId}/export`, {
+          responseType: 'blob'
+        })
+        
+        // Create download link
+        const url = window.URL.createObjectURL(new Blob([response.data]))
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `${formCode}.xlsx`)
+        
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(url)
+        
+        $q.notify({
+          type: 'positive',
+          message: 'فایل با موفقیت دانلود شد',
+          position: 'top'
+        })
+      } catch (error) {
+        console.error('Error exporting single form:', error)
+        $q.notify({
+          type: 'negative',
+          message: 'خطا در دانلود فایل',
+          position: 'top'
+        })
+      }
+    }
+    
+    const viewFormDetails = async (formId) => {
+      try {
+        const response = await api.get(`/reports/details/${formId}`)
+        if (response.data.success) {
+          selectedForm.value = response.data.data.form
+          selectedFormFields.value = response.data.data.fields
+          showDetailsDialog.value = true
+        }
+      } catch (error) {
+        console.error('Error loading form details:', error)
+        $q.notify({
+          type: 'negative',
+          message: 'خطا در بارگذاری جزئیات کاربرگ',
+          position: 'top'
+        })
+      }
+    }
+    
+    const formatDate = (dateString) => {
+      if (!dateString) return '—'
+      const date = new Date(dateString)
+      return date.toLocaleDateString('fa-IR')
+    }
+    
+    const truncateText = (text, length) => {
+      if (!text) return '—'
+      return text.length > length ? text.substring(0, length) + '...' : text
+    }
+    
+    const getTargetColor = (targetId) => {
+      const colors = ['#1e8a5e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
+      return colors[targetId % colors.length]
+    }
+    
+    const updateCharts = () => {
+      if (!statistics.value) return
+      
+      // Update Bar Chart
+      if (barChartInstance) {
+        barChartInstance.destroy()
+      }
+      
+      if (barChart.value && statistics.value.by_unit.length > 0) {
+        const ctx = barChart.value.getContext('2d')
+        barChartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: statistics.value.by_unit.map(unit => unit.name),
+            datasets: [{
+              label: 'تعداد کاربرگ',
+              data: statistics.value.by_unit.map(unit => unit.total_forms),
+              backgroundColor: (ctx) => {
+                const canvas = ctx.chart.ctx
+                const gradient = canvas.createLinearGradient(0, 0, 0, 260)
+                gradient.addColorStop(0, '#1e8a5e')
+                gradient.addColorStop(1, '#4caf87')
+                return gradient
+              },
+              borderRadius: 6,
+              borderSkipped: false,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: '#f1f5f9' },
+                ticks: {
+                  font: { family: 'Vazirmatn', size: 11 },
+                  color: '#94a3b8'
+                }
+              },
+              x: {
+                grid: { display: false },
+                ticks: {
+                  font: { family: 'Vazirmatn', size: 11 },
+                  color: '#64748b'
+                }
+              }
+            }
+          }
+        })
+      }
+      
+      // Update Donut Chart
+      if (donutChartInstance) {
+        donutChartInstance.destroy()
+      }
+      
+      if (donutChart.value && statistics.value.by_target.length > 0) {
+        const ctx = donutChart.value.getContext('2d')
+        const topTargets = statistics.value.by_target.slice(0, 5)
+        
+        donutChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: topTargets.map(target => `${target.code}: ${target.title}`),
+            datasets: [{
+              data: topTargets.map(target => target.total_forms),
+              backgroundColor: topTargets.map((_, index) => getTargetColor(index)),
+              borderWidth: 0,
+              hoverOffset: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        })
+      }
+    }
+    
+    // Watchers
+    watch(() => filters.value.target_id, () => {
+      // Reset program filter when target changes
+      filters.value.program_id = null
     })
-
-    return { barChart, donutChart, reportType, yearFilter, unitFilter, statusFilter, activeTab, reportTypes, unitOpts, summaryCards, donutData, tabs, currentCols, currentData, statusClass, generate, clearFilters, exportExcel, printReport }
+    
+    // Lifecycle
+    onMounted(async () => {
+      await loadInitialData()
+      await loadReport() // Load initial report
+    })
+    
+    return {
+      // Refs
+      barChart,
+      donutChart,
+      loading,
+      exporting,
+      showDetailsDialog,
+      
+      // Data
+      statistics,
+      forms,
+      selectedForm,
+      selectedFormFields,
+      filters,
+      
+      // Computed
+      isAdmin,
+      unitOptions,
+      targetOptions,
+      programOptions,
+      statusOptions,
+      tableColumns,
+      
+      // Methods
+      loadReport,
+      clearFilters,
+      exportExcel,
+      exportSingleForm,
+      viewFormDetails,
+      formatDate,
+      truncateText,
+      getTargetColor
+    }
   }
 }
 </script>
@@ -290,7 +838,12 @@ export default {
   font-size: 14px; font-weight: 700; color: #334155;
   display: flex; align-items: center; margin-bottom: 16px;
 }
-.filter-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+.filter-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+  gap: 14px; 
+  margin-bottom: 16px; 
+}
 .filter-actions { display: flex; align-items: center; gap: 8px; }
 
 .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
@@ -304,9 +857,6 @@ export default {
 .summary-body { flex: 1; }
 .summary-label { display: block; font-size: 11.5px; color: #64748b; margin-bottom: 3px; }
 .summary-value { display: block; font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1; }
-.summary-trend { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 5px; white-space: nowrap; display: flex; align-items: center; gap: 2px; }
-.trend-up      { background: #ecfdf5; color: #16a34a; }
-.trend-neutral { background: #f1f5f9; color: #94a3b8; }
 
 .charts-row { display: grid; grid-template-columns: 1fr 300px; gap: 16px; margin-bottom: 20px; }
 .chart-card { background: #fff; border: 1.5px solid #c6e8d8; border-radius: 14px; padding: 20px; }
@@ -321,16 +871,139 @@ export default {
 .donut-label { flex: 1; color: #475569; }
 .donut-val   { font-weight: 700; color: #0f172a; }
 
-.table-card { background: #fff; border: 1.5px solid #c6e8d8; border-radius: 14px; overflow: hidden; }
-.table-head-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #f1f5f9; }
-.tab-btns { display: flex; gap: 4px; }
-.tab-btn {
-  padding: 6px 14px; border-radius: 8px; border: 1px solid #e2e8f0;
-  background: #fff; font-size: 12.5px; font-weight: 500; color: #64748b;
-  cursor: pointer; font-family: 'Vazirmatn', sans-serif;
-  transition: all .15s;
-  &:hover { background: #f8fafc; }
-  &--active { background: #1e8a5e !important; color: #fff !important; border-color: #1e8a5e !important; }
+.table-card { 
+  background: #fff; 
+  border: 1.5px solid #c6e8d8; 
+  border-radius: 14px; 
+  overflow: hidden; 
+}
+
+.table-head-bar { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  padding: 16px 20px; 
+  border-bottom: 1px solid #f1f5f9; 
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reports-table {
+  .code-link {
+    text-decoration: underline;
+    font-weight: 500;
+  }
+}
+
+.row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+// Details Dialog Styles
+.details-dialog {
+  .details-content {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  .details-section {
+    margin-bottom: 24px;
+    
+    h4 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+  }
+  
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+    }
+    
+    span {
+      font-size: 14px;
+      color: #0f172a;
+    }
+  }
+  
+  .fields-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .field-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+  }
+  
+  .field-values {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .field-value {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    
+    .value {
+      display: block;
+      font-size: 14px;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+    
+    .creator {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+  }
+  
+  .no-value {
+    font-size: 12px;
+    color: #94a3b8;
+    font-style: italic;
+  }
+  
+  .details-actions {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 16px;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -338,8 +1011,13 @@ export default {
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .charts-row { grid-template-columns: 1fr; }
 }
+
 @media (max-width: 600px) {
   .summary-grid { grid-template-columns: 1fr; }
   .filter-grid { grid-template-columns: 1fr; }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

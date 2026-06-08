@@ -123,6 +123,17 @@ body {
   letter-spacing: 0 !important;
   border-radius: var(--radius-m) !important;
   transition: all .18s ease !important;
+  
+  /* حذف فاصله اضافی بین آیکون و متن */
+  .q-btn__content {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .q-icon {
+    margin: 0 !important;
+  }
 }
 .q-btn[color="primary"], .q-btn.bg-primary {
   background: var(--green-600) !important;

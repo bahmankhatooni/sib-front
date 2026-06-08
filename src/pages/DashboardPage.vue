@@ -42,8 +42,8 @@
           <h3>پیشرفت کاربرگ‌ها به تفکیک واحد</h3>
         </div>
       </div>
-      <div class="card-body">
-        <canvas id="formsChart" height="300"></canvas>
+      <div class="card-body chart-body">
+        <canvas id="formsChart" style="height: 140px;"></canvas>
       </div>
     </div>
 
@@ -572,7 +572,16 @@ export default {
 }
 
 .card-body {
-  padding: 24px;
+  padding: 16px;
+}
+
+#formsChart {
+  max-height: 140px !important;
+}
+
+.chart-body {
+  padding: 12px !important;
+  min-height: 160px;
 }
 
 // ============================================================
