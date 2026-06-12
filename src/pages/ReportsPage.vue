@@ -141,39 +141,7 @@
       </div>
     </div>
 
-    <!-- نمودارها -->
-    <div class="charts-row" v-if="statistics">
-      <div class="chart-card chart-card--wide">
-        <div class="card-head">
-          <div>
-            <h3 class="card-title">تعداد کاربرگ‌ها بر اساس واحد</h3>
-            <p class="card-sub">مقایسه تعداد کاربرگ‌ها در واحدهای مختلف</p>
-          </div>
-        </div>
-        <div class="chart-wrap">
-          <canvas ref="barChart"></canvas>
-        </div>
-      </div>
-      
-      <div class="chart-card chart-card--narrow">
-        <div class="card-head">
-          <div>
-            <h3 class="card-title">توزیع بر اساس اهداف</h3>
-            <p class="card-sub">کاربرگ‌ها بر اساس هدف</p>
-          </div>
-        </div>
-        <div class="donut-wrap">
-          <canvas ref="donutChart"></canvas>
-        </div>
-        <div class="donut-legend">
-          <div class="donut-legend-item" v-for="target in statistics.by_target.slice(0, 5)" :key="target.id">
-            <span class="donut-dot" :style="{ background: getTargetColor(target.id) }"></span>
-            <span class="donut-label">{{ target.code }}: {{ truncateText(target.title, 20) }}</span>
-            <span class="donut-val">{{ target.total_forms }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+
 
     <!-- جدول تفصیلی -->
     <div class="table-card">
@@ -686,9 +654,9 @@ export default {
       return text.length > length ? text.substring(0, length) + '...' : text
     }
     
-    const getTargetColor = (targetId) => {
-      const colors = ['#1e8a5e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
-      return colors[targetId % colors.length]
+    const getTargetColor = (index) => {
+      const colors = ['#1e8a5e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#a855f7']
+      return colors[index % colors.length]
     }
     
     const updateCharts = () => {
@@ -699,51 +667,66 @@ export default {
         barChartInstance.destroy()
       }
       
-      if (barChart.value && statistics.value.by_unit.length > 0) {
-        const ctx = barChart.value.getContext('2d')
-        barChartInstance = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: statistics.value.by_unit.map(unit => unit.name),
-            datasets: [{
-              label: 'تعداد کاربرگ',
-              data: statistics.value.by_unit.map(unit => unit.total_forms),
-              backgroundColor: (ctx) => {
-                const canvas = ctx.chart.ctx
-                const gradient = canvas.createLinearGradient(0, 0, 0, 260)
-                gradient.addColorStop(0, '#1e8a5e')
-                gradient.addColorStop(1, '#4caf87')
-                return gradient
-              },
-              borderRadius: 6,
-              borderSkipped: false,
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }
+      // فقط برای ادمین و اگر داده موجود باشد
+      if (barChart.value && isAdmin.value && statistics.value.by_unit.length > 0) {
+        // فیلتر واحدهایی که حداقل یک کاربرگ دارند
+        const unitsWithForms = statistics.value.by_unit.filter(unit => unit.total_forms > 0)
+        
+        if (unitsWithForms.length > 0) {
+          const ctx = barChart.value.getContext('2d')
+          barChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: unitsWithForms.map(unit => unit.name),
+              datasets: [{
+                label: 'تعداد کاربرگ',
+                data: unitsWithForms.map(unit => unit.total_forms),
+                backgroundColor: (ctx) => {
+                  const canvas = ctx.chart.ctx
+                  const gradient = canvas.createLinearGradient(0, 0, 0, 260)
+                  gradient.addColorStop(0, '#1e8a5e')
+                  gradient.addColorStop(1, '#4caf87')
+                  return gradient
+                },
+                borderRadius: 6,
+                borderSkipped: false,
+              }]
             },
-            scales: {
-              y: {
-                beginAtZero: true,
-                grid: { color: '#f1f5f9' },
-                ticks: {
-                  font: { family: 'Vazirmatn', size: 11 },
-                  color: '#94a3b8'
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  enabled: true,
+                  callbacks: {
+                    label: function(context) {
+                      return context.dataset.label + ': ' + context.parsed.y + ' کاربرگ'
+                    }
+                  }
                 }
               },
-              x: {
-                grid: { display: false },
-                ticks: {
-                  font: { family: 'Vazirmatn', size: 11 },
-                  color: '#64748b'
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: '#f1f5f9' },
+                  ticks: {
+                    font: { family: 'Vazirmatn', size: 11 },
+                    color: '#94a3b8',
+                    stepSize: 1
+                  }
+                },
+                x: {
+                  grid: { display: false },
+                  ticks: {
+                    font: { family: 'Vazirmatn', size: 11 },
+                    color: '#64748b'
+                  }
                 }
               }
             }
-          }
-        })
+          })
+        }
       }
       
       // Update Donut Chart
@@ -753,15 +736,24 @@ export default {
       
       if (donutChart.value && statistics.value.by_target.length > 0) {
         const ctx = donutChart.value.getContext('2d')
-        const topTargets = statistics.value.by_target.slice(0, 5)
+        // استفاده از تمام اهداف، نه فقط 5 تا
+        const allTargets = statistics.value.by_target
+        
+        // ایجاد رنگ‌های متنوع برای تمام اهداف
+        const colors = []
+        const baseColors = ['#1e8a5e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#a855f7']
+        
+        for (let i = 0; i < allTargets.length; i++) {
+          colors.push(baseColors[i % baseColors.length])
+        }
         
         donutChartInstance = new Chart(ctx, {
           type: 'doughnut',
           data: {
-            labels: topTargets.map(target => `${target.code}: ${target.title}`),
+            labels: allTargets.map(target => `${target.code}: ${target.title}`),
             datasets: [{
-              data: topTargets.map(target => target.total_forms),
-              backgroundColor: topTargets.map((_, index) => getTargetColor(index)),
+              data: allTargets.map(target => target.total_forms),
+              backgroundColor: colors,
               borderWidth: 0,
               hoverOffset: 4
             }]
@@ -771,7 +763,15 @@ export default {
             maintainAspectRatio: false,
             cutout: '72%',
             plugins: {
-              legend: { display: false }
+              legend: { display: false },
+              tooltip: {
+                enabled: true,
+                callbacks: {
+                  label: function(context) {
+                    return context.label + ': ' + context.parsed + ' کاربرگ'
+                  }
+                }
+              }
             }
           }
         })
@@ -860,12 +860,17 @@ export default {
 
 .charts-row { display: grid; grid-template-columns: 1fr 300px; gap: 16px; margin-bottom: 20px; }
 .chart-card { background: #fff; border: 1.5px solid #c6e8d8; border-radius: 14px; padding: 20px; }
+.chart-card--full { grid-column: 1 / -1; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
 .card-title { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 3px; }
 .card-sub   { font-size: 12px; color: #94a3b8; }
 .chart-wrap { height: 220px; position: relative; }
 .donut-wrap { height: 160px; position: relative; margin-bottom: 14px; }
-.donut-legend { display: flex; flex-direction: column; gap: 7px; }
+.donut-legend { display: flex; flex-direction: column; gap: 7px; max-height: 200px; overflow-y: auto; padding-right: 8px; }
+.donut-legend::-webkit-scrollbar { width: 6px; }
+.donut-legend::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+.donut-legend::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+.donut-legend::-webkit-scrollbar-thumb:hover { background: #64748b; }
 .donut-legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; }
 .donut-dot   { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .donut-label { flex: 1; color: #475569; }
@@ -1009,7 +1014,12 @@ export default {
 @media (max-width: 1100px) {
   .filter-grid { grid-template-columns: repeat(2, 1fr); }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
-  .charts-row { grid-template-columns: 1fr; }
+  .charts-row { 
+    grid-template-columns: 1fr; 
+    .chart-card--narrow, .chart-card--full {
+      grid-column: auto;
+    }
+  }
 }
 
 @media (max-width: 600px) {
