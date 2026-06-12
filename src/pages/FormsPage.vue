@@ -243,62 +243,107 @@
             <span v-if="selectedForm?.activity"><q-icon name="article" size="14px" class="q-ml-xs" />{{ selectedForm?.activity?.title }}</span>
           </div>
 
-          <!-- فیلدهای فرم -->
+          <!-- فیلدهای فرم به صورت جدول -->
           <div class="dynamic-form">
-            <!-- فیلدهای متغیر -->
-            <div v-for="field in dynamicFields" :key="field.id" class="dyn-field">
-              <label class="dyn-label">
-                {{ field.field_label }}
-                <span v-if="field.is_required" class="req">*</span>
-              </label>
+            <div v-if="dynamicFields.length > 0" class="form-table-container">
+              <!-- دکمه افزودن ردیف -->
+              <div class="table-toolbar">
+                <span class="row-count">{{ dataRows.length }} ردیف داده</span>
+                <q-btn 
+                  unelevated 
+                  color="primary" 
+                  icon="add" 
+                  label="افزودن ردیف" 
+                  size="sm" 
+                  @click="addDataRow" 
+                />
+              </div>
 
-              <!-- فیلد متنی -->
-              <q-input
-                v-if="['text','number','date'].includes(field.field_type)"
-                v-model="field.value"
-                outlined
-                dense
-                :type="field.field_type"
-                :placeholder="field.field_placeholder"
-              />
+              <!-- جدول داده‌ها -->
+              <div class="form-table-wrapper">
+                <table class="form-data-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 60px;">#</th>
+                      <th v-for="field in dynamicFields" :key="field.id">
+                        {{ field.field_label }}
+                        <span v-if="field.is_required" class="req">*</span>
+                      </th>
+                      <th style="width: 80px;">عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, rowIndex) in dataRows" :key="rowIndex">
+                      <td class="text-center">{{ rowIndex + 1 }}</td>
+                      <td v-for="field in dynamicFields" :key="field.id">
+                        <!-- فیلد متنی -->
+                        <q-input
+                          v-if="['text','number','date'].includes(field.field_type)"
+                          v-model="row.values[field.id]"
+                          outlined
+                          dense
+                          :type="field.field_type"
+                          :placeholder="field.field_placeholder"
+                          class="table-input"
+                        />
 
-              <!-- فیلد انتخاب -->
-              <q-select
-                v-else-if="field.field_type === 'select'"
-                v-model="field.value"
-                outlined
-                dense
-                :options="field.field_options || []"
-                :placeholder="field.field_placeholder"
-              />
+                        <!-- فیلد انتخاب -->
+                        <q-select
+                          v-else-if="field.field_type === 'select'"
+                          v-model="row.values[field.id]"
+                          outlined
+                          dense
+                          :options="field.field_options || []"
+                          :placeholder="field.field_placeholder"
+                          class="table-input"
+                        />
 
-              <!-- فیلد متن چندخطی -->
-              <q-input
-                v-else-if="field.field_type === 'textarea'"
-                v-model="field.value"
-                outlined
-                dense
-                type="textarea"
-                rows="3"
-                :placeholder="field.field_placeholder"
-              />
+                        <!-- فیلد متن چندخطی -->
+                        <q-input
+                          v-else-if="field.field_type === 'textarea'"
+                          v-model="row.values[field.id]"
+                          outlined
+                          dense
+                          type="textarea"
+                          rows="2"
+                          :placeholder="field.field_placeholder"
+                          class="table-input"
+                        />
 
-              <!-- فیلد چک‌باکس -->
-              <q-toggle
-                v-else-if="field.field_type === 'checkbox'"
-                v-model="field.value"
-                :label="field.field_label"
-                color="primary"
-              />
-
-              <!-- فیلد ناشناخته -->
-              <div v-else class="text-negative">
-                نوع فیلد {{ field.field_type }} پشتیبانی نمی‌شود
+                        <!-- فیلد چک‌باکس -->
+                        <q-toggle
+                          v-else-if="field.field_type === 'checkbox'"
+                          v-model="row.values[field.id]"
+                          color="primary"
+                          class="table-input"
+                        />
+                      </td>
+                      <td class="text-center">
+                        <q-btn
+                          flat
+                          dense
+                          round
+                          icon="delete"
+                          color="negative"
+                          size="sm"
+                          @click="removeDataRow(rowIndex)"
+                          title="حذف ردیف"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            <!-- فیلد تکمیل شده (در انتهای فرم) -->
-            <div class="dyn-field dyn-field--completed">
+            <!-- پیام در صورت نبود فیلد -->
+            <div v-else class="no-fields-message">
+              <q-icon name="info" size="24px" color="grey-5" />
+              <p>این کاربرگ هنوز فیلدی ندارد. از بخش "مدیریت فیلدها" می‌توانید فیلد اضافه کنید.</p>
+            </div>
+
+            <!-- فیلد تکمیل شده -->
+            <div class="dyn-field dyn-field--completed" style="margin-top: 20px;">
               <label class="dyn-label">وضعیت تکمیل</label>
               <q-toggle
                 v-model="formIsCompleted"
@@ -409,6 +454,8 @@ export default {
     const allActivities = ref([])
 
     const dynamicFields = ref([])
+    const dataRows = ref([]) // ذخیره چند ردیف داده
+    const formIsCompleted = ref(false)
     const editableFields = ref([])
     const uploadDialog = ref(false)
     const uploading = ref(false)
@@ -574,17 +621,32 @@ export default {
           // ذخیره فیلدها
           dynamicFields.value = response.data.data.fields || []
 
+          // ذخیره ردیف‌های داده
+          dataRows.value = response.data.data.data_rows || []
+          
+          // اگر هیچ ردیف داده نداشتیم، یک ردیف خالی ایجاد کن
+          if (dataRows.value.length === 0) {
+            const emptyRow = { row_index: 0, values: {} }
+            dynamicFields.value.forEach(field => {
+              emptyRow.values[field.id] = ''
+            })
+            dataRows.value.push(emptyRow)
+          }
+
           // مقداردهی وضعیت تکمیل
           formIsCompleted.value = response.data.data.form?.is_completed || false
 
           console.log('Dynamic fields count:', dynamicFields.value.length)
+          console.log('Data rows count:', dataRows.value.length)
         } else {
           console.error('API error:', response.data?.message)
           dynamicFields.value = []
+          dataRows.value = []
         }
       } catch (error) {
         console.error('Fetch form fields error:', error)
         dynamicFields.value = []
+        dataRows.value = []
       }
     }
 
@@ -651,8 +713,6 @@ export default {
       dialog.value = true
     }
 
-    const formIsCompleted = ref(false)
-
     const openForm = async (row) => {
       selectedForm.value = row
       await fetchFormFields(row.id)
@@ -716,14 +776,14 @@ export default {
       savingForm.value = true
 
       try {
-        // آماده سازی داده‌های فیلدها برای ارسال به API
-        const fieldsData = dynamicFields.value.map(field => ({
-          id: field.id,
-          value: field.value || ''
+        // آماده‌سازی data_rows برای ارسال
+        const dataRowsToSend = dataRows.value.map(row => ({
+          row_index: row.row_index,
+          values: row.values
         }))
 
         const response = await api.post(`/forms/${selectedForm.value.id}/form`, {
-          fields: fieldsData,
+          data_rows: dataRowsToSend,
           is_completed: formIsCompleted.value
         })
 
@@ -751,6 +811,35 @@ export default {
         })
       } finally {
         savingForm.value = false
+      }
+    }
+
+    // افزودن ردیف جدید
+    const addDataRow = () => {
+      const newRow = {
+        row_index: dataRows.value.length,
+        values: {}
+      }
+      dynamicFields.value.forEach(field => {
+        newRow.values[field.id] = ''
+      })
+      dataRows.value.push(newRow)
+    }
+
+    // حذف ردیف
+    const removeDataRow = (index) => {
+      if (dataRows.value.length > 1) {
+        dataRows.value.splice(index, 1)
+        // به‌روزرسانی row_index برای ردیف‌های بعدی
+        dataRows.value.forEach((row, idx) => {
+          row.row_index = idx
+        })
+      } else {
+        $q.notify({
+          type: 'warning',
+          message: 'حداقل یک ردیف باید وجود داشته باشد',
+          position: 'top'
+        })
       }
     }
 
@@ -957,6 +1046,7 @@ export default {
       filteredTaskOpts,
       filteredActivityOpts,
       dynamicFields,
+      dataRows,
       editableFields,
       fieldTypes,
       columns,
@@ -967,6 +1057,8 @@ export default {
       addField,
       save,
       saveForm,
+      addDataRow,
+      removeDataRow,
       saveFields,
       deleteRow,
       goToPage,
@@ -1076,3 +1168,85 @@ export default {
   &.act-download { background: #e0f2fe; color: #0284c7; }
 }
 </style>
+
+
+/* استایل‌های جدول چند ردیفی */
+.form-table-container {
+  margin-top: 20px;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.row-count {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.form-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.form-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+
+.form-data-table thead th {
+  background: #1976d2;
+  color: white;
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 13px;
+  border-left: 1px solid rgba(255,255,255,0.1);
+}
+
+.form-data-table thead th:last-child {
+  border-left: none;
+}
+
+.form-data-table tbody td {
+  padding: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  border-left: 1px solid #e0e0e0;
+  vertical-align: middle;
+}
+
+.form-data-table tbody td:last-child {
+  border-left: none;
+}
+
+.form-data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.form-data-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.table-input {
+  min-width: 150px;
+}
+
+.no-fields-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+}
+
+.no-fields-message p {
+  margin-top: 12px;
+  font-size: 14px;
+}
