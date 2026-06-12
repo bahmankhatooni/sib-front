@@ -202,11 +202,6 @@
         </div>
         <div class="dialog-body">
           <div class="form-group full-width">
-            <label>کد کاربرگ <span class="req">*</span></label>
-            <q-input v-model="uploadForm.code" outlined dense placeholder="مثال: 30201-4" />
-            <div class="field-hint">نام فایل باید با کد کاربرگ مطابقت داشته باشد</div>
-          </div>
-          <div class="form-group full-width">
             <label>فایل اکسل <span class="req">*</span></label>
             <q-file
               v-model="uploadForm.file"
@@ -219,6 +214,10 @@
                 <q-icon name="attach_file" />
               </template>
             </q-file>
+            <div class="field-hint">
+              <q-icon name="info" size="14px" class="q-mr-xs" />
+              هر شیت در فایل به عنوان یک کاربرگ جداگانه ایجاد می‌شود. نام هر شیت به عنوان کد کاربرگ استفاده می‌شود.
+            </div>
           </div>
         </div>
         <div class="dialog-foot">
@@ -820,15 +819,15 @@ export default {
       })
     }
     const openUploadDialog = () => {
-      uploadForm.value = { code: '', file: null }
+      uploadForm.value = { file: null }
       uploadDialog.value = true
     }
 
     const uploadFormSubmit = async () => {
-      if (!uploadForm.value.code || !uploadForm.value.file) {
+      if (!uploadForm.value.file) {
         $q.notify({
           type: 'negative',
-          message: 'لطفاً کد کاربرگ و فایل را انتخاب کنید',
+          message: 'لطفاً فایل را انتخاب کنید',
           position: 'top'
         })
         return
@@ -838,7 +837,6 @@ export default {
 
       try {
         const formData = new FormData()
-        formData.append('code', uploadForm.value.code)
         formData.append('file', uploadForm.value.file)
 
         const response = await api.post('/forms/import', formData, {
@@ -846,22 +844,56 @@ export default {
         })
 
         if (response.data.success) {
+          // بررسی تعداد کاربرگ‌های ایجاد شده
+          const importedCount = response.data.imported_count || 0
+          const errorCount = response.data.error_count || 0
+          
+          let message = response.data.message
+          
+          // نمایش خطاها (اگر وجود داشته باشد)
+          if (errorCount > 0 && response.data.errors) {
+            message += '\n\nخطاها:\n' + response.data.errors.join('\n')
+          }
+          
           $q.notify({
-            type: 'positive',
-            message: response.data.message,
-            position: 'top'
+            type: importedCount > 0 ? 'positive' : 'warning',
+            message: message,
+            position: 'top',
+            timeout: errorCount > 0 ? 8000 : 3000,
+            multiLine: errorCount > 0,
+            html: errorCount > 0
           })
-          uploadDialog.value = false
-          await fetchForms()
+          
+          // بستن دیالوگ فقط در صورت موفقیت
+          if (importedCount > 0) {
+            uploadDialog.value = false
+            await fetchForms()
+          }
+        } else {
+          $q.notify({
+            type: 'warning',
+            message: response.data.message,
+            position: 'top',
+            timeout: 5000
+          })
         }
       } catch (error) {
         console.error('Upload error:', error)
         const message = error.response?.data?.message || 'خطا در بارگذاری فایل'
+        const errors = error.response?.data?.errors
+        
+        let fullMessage = message
+        if (errors && Array.isArray(errors)) {
+          fullMessage += '\n\nخطاها:\n' + errors.join('\n')
+        }
+        
         $q.notify({
           type: 'negative',
-          message: message,
+          message: fullMessage,
           position: 'top',
-          timeout: 5000
+          timeout: 5000,
+          multiLine: !!errors,
+          html: !!errors
         })
       } finally {
         uploading.value = false
