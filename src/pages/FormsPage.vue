@@ -228,7 +228,7 @@
     </q-dialog>
     <!-- دیالوگ مشاهده فرم -->
     <q-dialog v-model="formDialog" persistent>
-      <div class="form-dialog">
+      <div class="form-dialog-xl">
         <div class="dialog-head">
           <h3>فرم کاربرگ: {{ selectedForm?.code }}</h3>
           <button class="dialog-close" @click="formDialog=false"><q-icon name="close" size="20px" /></button>

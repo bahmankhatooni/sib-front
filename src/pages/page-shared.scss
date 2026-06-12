@@ -162,6 +162,17 @@
   direction: rtl;
 }
 
+.form-dialog-xl {
+  background: #fff;
+  border-radius: 16px;
+  width: 90vw;
+  max-width: 1400px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.14);
+  border: 1.5px solid #c6e8d8;
+  overflow: hidden;
+  direction: rtl;
+}
+
 .dialog-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 22px 14px;
