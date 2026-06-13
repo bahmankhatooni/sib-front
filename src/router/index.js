@@ -18,7 +18,7 @@ export default route(function (/* { store, ssrContext } */) {
     const isAuthenticated = !!token  // تبدیل به boolean
 
     // لیست مسیرهای عمومی (نیاز به لاگین ندارند)
-    const publicRoutes = ['/login']
+    const publicRoutes = ['/login', '/forgot-password']  // '/forgot-password' اضافه شد
 
     // بررسی اینکه مسیر جاری عمومی است یا نه
     const isPublicRoute = publicRoutes.includes(to.path)
@@ -32,6 +32,13 @@ export default route(function (/* { store, ssrContext } */) {
 
     // اگر کاربر لاگین کرده و می‌خواهد به صفحه لاگین برود
     if (isAuthenticated && to.path === '/login') {
+      console.log('✅ قبلاً وارد شده‌اید، هدایت به داشبورد')
+      next('/dashboard')
+      return
+    }
+
+    // اگر کاربر لاگین کرده و می‌خواهد به صفحه فراموشی رمز برود، به داشبورد هدایت شود
+    if (isAuthenticated && to.path === '/forgot-password') {
       console.log('✅ قبلاً وارد شده‌اید، هدایت به داشبورد')
       next('/dashboard')
       return

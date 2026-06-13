@@ -30,7 +30,7 @@
         </ul>
       </div>
 
-      <p class="brand-copy">© ۱۴۰۴ سامانه سیب — تمام حقوق محفوظ است</p>
+      <p class="brand-copy">© 1405 سامانه سیب — تمام حقوق محفوظ است</p>
     </div>
 
     <!-- ستون راست: فرم ورود -->
@@ -89,10 +89,9 @@
             </q-input>
           </div>
 
-          <div class="forgot-row">
-            <a href="#" class="forgot-link">فراموشی رمز عبور؟</a>
-          </div>
-
+<div class="forgot-row" >
+  <router-link to="/forgot-password" class="forgot-link">فراموشی رمز عبور؟</router-link>
+</div>
           <q-btn
             type="submit"
             unelevated
@@ -409,7 +408,7 @@ export default {
 }
 
 .forgot-row {
-  text-align: left;
+  text-align: right;
   margin-bottom: 24px;
   margin-top: -4px;
 }

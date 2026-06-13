@@ -42,13 +42,9 @@
                 </div>
               </div>
               <q-separator class="q-my-sm" />
-              <q-item clickable dense class="dropdown-item">
+              <q-item clickable dense class="dropdown-item" @click="navigate('/profile')">
                 <q-item-section avatar><q-icon name="person_outline" size="18px" /></q-item-section>
                 <q-item-section>پروفایل من</q-item-section>
-              </q-item>
-              <q-item clickable dense class="dropdown-item">
-                <q-item-section avatar><q-icon name="settings" size="18px" /></q-item-section>
-                <q-item-section>تنظیمات</q-item-section>
               </q-item>
               <q-separator class="q-my-sm" />
               <q-item clickable dense class="dropdown-item dropdown-logout" @click="logout">
@@ -219,7 +215,7 @@ export default {
         title: 'خروج از سیستم',
         message: 'آیا مطمئن هستید که می‌خواهید خارج شوید؟',
         cancel: { label: 'انصراف', flat: true, color: 'grey' },
-        ok: { label: 'بله، خارج شو', color: 'negative', unelevated: true },
+        ok: { label: 'خروج', color: 'negative', unelevated: true },
         persistent: true
       }).onOk(async () => {
         $q.loading.show({

@@ -4,6 +4,12 @@ const routes = [
     component: () => import('pages/LoginPage.vue'),
     meta: { requiresAuth: false, isPublic: true }
   },
+      
+  {
+    path: '/forgot-password',  
+    component: () => import('pages/ForgotPasswordPage.vue'),
+    meta: { requiresAuth: false, isPublic: true }
+  },
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
@@ -20,6 +26,7 @@ const routes = [
       { path: 'activities', component: () => import('pages/ActivitiesPage.vue') },
       { path: 'forms', component: () => import('pages/FormsPage.vue') },
       { path: 'reports', component: () => import('pages/ReportsPage.vue') },
+      { path: 'profile', component: () => import('pages/ProfilePage.vue') },
     ]
   },
   {

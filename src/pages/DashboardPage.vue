@@ -5,7 +5,7 @@
     <!-- هدر خوش‌آمدگویی -->
     <div class="welcome-section">
       <div class="welcome-text">
-        <h1 class="welcome-title">خوش آمدید، {{ userFullName }} 👋</h1>
+        <h1 class="welcome-title"> {{ userFullName }} 👋</h1>
         <p class="welcome-subtitle">به سامانه مدیریت برنامه عملیاتی سیب خوش آمدید. در اینجا می‌توانید آخرین وضعیت برنامه‌ها، اقدامات و فعالیت‌ها را مشاهده کنید.</p>
       </div>
       <div class="welcome-date">
