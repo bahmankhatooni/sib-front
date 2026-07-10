@@ -15,7 +15,9 @@
             <span class="breadcrumb-page">{{ currentPageTitle }}</span>
           </div>
         </div>
-
+        <div class="header-center">
+          <h1 class="app-title">سامانه یکپارچه برنامه عملیاتی</h1>
+        </div>
         <div class="header-end">
           <q-btn-dropdown
             flat
@@ -68,17 +70,135 @@
 
         <nav class="sidebar-nav">
           <template v-for="(item, idx) in menuItems" :key="item.to">
-            <div
-              class="nav-item"
-              :class="{ 'nav-item--active': isActive(item.to) }"
-              @click="navigate(item.to)"
-            >
-              <div class="nav-icon">
-                <q-icon :name="item.icon" size="17px" />
+            <!-- منوهای معمولی -->
+            <template v-if="item.type === 'link'">
+              <div
+                class="nav-item"
+                :class="{ 'nav-item--active': isActive(item.to) }"
+                @click="navigate(item.to)"
+              >
+                <div class="nav-icon">
+                  <q-icon :name="item.icon" size="17px" />
+                </div>
+                <span class="nav-label">{{ item.title }}</span>
               </div>
-              <span class="nav-label">{{ item.title }}</span>
-            </div>
-            <div v-if="idx < menuItems.length - 1" class="nav-divider"></div>
+              <div v-if="idx < menuItems.length - 1" class="nav-divider"></div>
+            </template>
+
+            <!-- منوی درختی اهداف -->
+            <template v-if="item.type === 'tree'">
+              <div
+                class="nav-item nav-item--tree"
+                :class="{ 'nav-item--active': isActive(item.to) }"
+                @click="navigate(item.to)"
+              >
+                <div class="nav-icon">
+                  <q-icon :name="item.icon" size="17px" />
+                </div>
+                <span class="nav-label">{{ item.title }}</span>
+              </div>
+
+              <!-- ساختار درختی اهداف -->
+              <div class="tree-structure">
+                <!-- پیام در صورت نبود هدف -->
+                <div v-if="targets.length === 0" class="tree-empty">
+                  <span>هیچ هدفی یافت نشد</span>
+                </div>
+
+                <!-- اهداف - همیشه نمایش داده می‌شوند -->
+                <div v-for="target in targets" :key="`target-${target.id}`" class="tree-level-1">
+                  <div 
+                    class="tree-item"
+                    :class="{ 'tree-item--selected': selectedTargetId === target.id }"
+                    @click.stop="navigateToTarget(target)"
+                  >
+                    <q-icon 
+                      v-if="getProgramsByTarget(target.id).length > 0"
+                      :name="expandedTargets[target.id] ? 'expand_more' : 'chevron_left'" 
+                      size="14px" 
+                      class="tree-expand-icon"
+                      @click.stop="toggleTarget(target.id)"
+                    />
+                    <span v-else class="tree-expand-spacer"></span>
+                    <q-icon name="flag" size="14px" class="tree-item-icon" />
+                    <span class="tree-item-label">{{ target.title }}</span>
+                  </div>
+
+                  <!-- برنامه‌ها - فقط وقتی expand شده نمایش داده می‌شوند -->
+                  <template v-if="expandedTargets[target.id]">
+                    <div 
+                      v-for="program in getProgramsByTarget(target.id)" 
+                      :key="`program-${program.id}`"
+                      class="tree-level-2"
+                    >
+                      <div 
+                        class="tree-item"
+                        :class="{ 'tree-item--selected': selectedProgramId === program.id }"
+                        @click.stop="navigateToProgram(program, target)"
+                      >
+                        <q-icon 
+                          v-if="getTasksByProgram(program.id).length > 0"
+                          :name="expandedPrograms[program.id] ? 'expand_more' : 'chevron_left'" 
+                          size="14px" 
+                          class="tree-expand-icon"
+                          @click.stop="toggleProgram(program.id)"
+                        />
+                        <span v-else class="tree-expand-spacer"></span>
+                        <q-icon name="event_note" size="14px" class="tree-item-icon" />
+                        <span class="tree-item-label">{{ program.title }}</span>
+                      </div>
+
+                      <!-- اقدامات - فقط وقتی expand شده نمایش داده می‌شوند -->
+                      <template v-if="expandedPrograms[program.id]">
+                        <div 
+                          v-for="task in getTasksByProgram(program.id)" 
+                          :key="`task-${task.id}`"
+                          class="tree-level-3"
+                        >
+                          <div 
+                            class="tree-item"
+                            :class="{ 'tree-item--selected': selectedTaskId === task.id }"
+                            @click.stop="navigateToTask(task, program, target)"
+                          >
+                            <q-icon 
+                              v-if="getActivitiesByTask(task.id).length > 0"
+                              :name="expandedTasks[task.id] ? 'expand_more' : 'chevron_left'" 
+                              size="14px" 
+                              class="tree-expand-icon"
+                              @click.stop="toggleTask(task.id)"
+                            />
+                            <span v-else class="tree-expand-spacer"></span>
+                            <q-icon name="checklist_rtl" size="14px" class="tree-item-icon" />
+                            <span class="tree-item-label">{{ task.title }}</span>
+                          </div>
+
+                          <!-- فعالیت‌ها - فقط وقتی expand شده نمایش داده می‌شوند -->
+                          <template v-if="expandedTasks[task.id]">
+                            <div 
+                              v-for="activity in getActivitiesByTask(task.id)" 
+                              :key="`activity-${activity.id}`"
+                              class="tree-level-4"
+                            >
+                              <div 
+                                class="tree-item tree-item--leaf"
+                                :class="{ 'tree-item--selected': selectedActivityId === activity.id }"
+                                @click.stop="navigateToActivity(activity)"
+                              >
+                                <span class="tree-expand-spacer"></span>
+                                <q-icon name="article" size="14px" class="tree-item-icon" />
+                                <span class="tree-item-label">{{ activity.title }}</span>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div v-if="idx < menuItems.length - 1" class="nav-divider"></div>
+            </template>
           </template>
         </nav>
 
@@ -118,6 +238,21 @@ export default {
     // اطلاعات کاربر از localStorage
     const userData = ref(null)
 
+    // داده‌های درختی
+    const targets = ref([])
+    const programs = ref([])
+    const tasks = ref([])
+    const activities = ref([])
+    const expandedTargets = ref({})
+    const expandedPrograms = ref({})
+    const expandedTasks = ref({})
+
+    // آیتم‌های انتخاب شده برای هایلایت
+    const selectedTargetId = ref(null)
+    const selectedProgramId = ref(null)
+    const selectedTaskId = ref(null)
+    const selectedActivityId = ref(null)
+
     const loadUserData = () => {
       const userStr = localStorage.getItem('user')
       if (userStr) {
@@ -129,8 +264,108 @@ export default {
       }
     }
 
+    const loadTreeData = async () => {
+      try {
+        console.log('Loading tree data...')
+        
+        // ابتدا activities را لود می‌کنیم (فیلتر در backend بر اساس واحد کاربر از طریق activity_unit انجام می‌شود)
+        const activitiesRes = await api.get('/activities', { params: { per_page: 1000 } })
+        activities.value = activitiesRes.data.data || []
+        
+        console.log('Activities loaded:', activities.value.length)
+
+        if (activities.value.length === 0) {
+          // اگر فعالیتی نیست، هیچ چیز نمایش نمی‌دهیم
+          targets.value = []
+          programs.value = []
+          tasks.value = []
+          return
+        }
+
+        // استخراج task_id های منحصر به فرد از activities
+        const taskIds = [...new Set(activities.value.map(a => a.task_id).filter(id => id))]
+        console.log('Task IDs from activities:', taskIds)
+
+        if (taskIds.length === 0) {
+          targets.value = []
+          programs.value = []
+          tasks.value = []
+          return
+        }
+
+        // دریافت تمام tasks (بدون فیلتر backend)
+        const tasksRes = await api.get('/tasks', { params: { per_page: 1000, no_filter: true } })
+        const allTasks = tasksRes.data.data || []
+        
+        // فیلتر tasks بر اساس taskIds
+        tasks.value = allTasks.filter(t => taskIds.includes(t.id))
+        console.log('Filtered tasks:', tasks.value.length)
+
+        if (tasks.value.length === 0) {
+          targets.value = []
+          programs.value = []
+          return
+        }
+
+        // استخراج program_id های منحصر به فرد از tasks
+        const programIds = [...new Set(tasks.value.map(t => t.program_id).filter(id => id))]
+        console.log('Program IDs from tasks:', programIds)
+
+        if (programIds.length === 0) {
+          targets.value = []
+          programs.value = []
+          return
+        }
+
+        // دریافت تمام programs (بدون فیلتر backend)
+        const programsRes = await api.get('/programs', { params: { per_page: 1000, no_filter: true } })
+        const allPrograms = programsRes.data.data || []
+        
+        // فیلتر programs بر اساس programIds
+        programs.value = allPrograms.filter(p => programIds.includes(p.id))
+        console.log('Filtered programs:', programs.value.length)
+
+        if (programs.value.length === 0) {
+          targets.value = []
+          return
+        }
+
+        // استخراج target_id های منحصر به فرد از programs
+        const targetIds = [...new Set(programs.value.map(p => p.target_id).filter(id => id))]
+        console.log('Target IDs from programs:', targetIds)
+
+        if (targetIds.length === 0) {
+          targets.value = []
+          return
+        }
+
+        // دریافت تمام targets (بدون فیلتر backend)
+        const targetsRes = await api.get('/targets', { params: { per_page: 1000, no_filter: true } })
+        const allTargets = targetsRes.data.data || []
+        
+        console.log('All targets from API:', allTargets.length, allTargets)
+        console.log('Looking for target IDs:', targetIds)
+        
+        // فیلتر targets بر اساس targetIds
+        targets.value = allTargets.filter(t => targetIds.includes(t.id))
+        console.log('Filtered targets:', targets.value.length, targets.value)
+
+        console.log('Tree data loaded successfully')
+        console.log('Final counts - Targets:', targets.value.length, 'Programs:', programs.value.length, 'Tasks:', tasks.value.length, 'Activities:', activities.value.length)
+      } catch (error) {
+        console.error('Load tree data error:', error)
+        console.error('Error response:', error.response?.data)
+        console.error('Error status:', error.response?.status)
+        targets.value = []
+        programs.value = []
+        tasks.value = []
+        activities.value = []
+      }
+    }
+
     onMounted(() => {
       loadUserData()
+      loadTreeData()
     })
 
     const toggleDrawer = () => {
@@ -144,18 +379,81 @@ export default {
       return null
     })
 
+    const isAdmin = computed(() => userRoleCode.value === 'ADMIN')
+    const isUnitUser = computed(() => userRoleCode.value === 'UNIT_USER')
+    const userUnitId = computed(() => userData.value?.unit_id)
+
+    const getFilterParams = () => {
+      if (isAdmin.value) return {}
+      if (isUnitUser.value) return {} // UNIT_USER فیلتر در backend بر اساس واحد (activity_unit) انجام می‌شود
+      return { unit_id: userUnitId.value }
+    }
+
+    const getProgramsByTarget = (targetId) => {
+      return programs.value.filter(p => p.target_id === targetId)
+    }
+
+    const getTasksByProgram = (programId) => {
+      return tasks.value.filter(t => t.program_id === programId)
+    }
+
+    const getActivitiesByTask = (taskId) => {
+      return activities.value.filter(a => a.task_id === taskId)
+    }
+
+    const toggleTarget = (targetId) => {
+      expandedTargets.value[targetId] = !expandedTargets.value[targetId]
+    }
+
+    const toggleProgram = (programId) => {
+      expandedPrograms.value[programId] = !expandedPrograms.value[programId]
+    }
+
+    const toggleTask = (taskId) => {
+      expandedTasks.value[taskId] = !expandedTasks.value[taskId]
+    }
+
+    const navigateToTarget = (target) => {
+      selectedTargetId.value = target.id
+      selectedProgramId.value = null
+      selectedTaskId.value = null
+      selectedActivityId.value = null
+      router.push(`/targets?target_id=${target.id}`)
+    }
+
+    const navigateToProgram = (program, target) => {
+      selectedTargetId.value = target.id
+      selectedProgramId.value = program.id
+      selectedTaskId.value = null
+      selectedActivityId.value = null
+      router.push(`/targets?target_id=${target.id}&program_id=${program.id}`)
+    }
+
+    const navigateToTask = (task, program, target) => {
+      selectedTargetId.value = target.id
+      selectedProgramId.value = program.id
+      selectedTaskId.value = task.id
+      selectedActivityId.value = null
+      router.push(`/targets?target_id=${target.id}&program_id=${program.id}&task_id=${task.id}`)
+    }
+
+    const navigateToActivity = (activity) => {
+      selectedActivityId.value = activity.id
+      // اگر کاربرگ دارد، به صفحه فرم برو
+      if (activity.form_code) {
+        router.push('/forms')
+      }
+    }
+
     // لیست کامل منوها با تعیین نقش‌های مجاز
     const allMenuItems = [
-      { title: 'داشبورد',   icon: 'dashboard',       to: '/dashboard',  roles: ['ADMIN', 'UNIT_USER'] },
-      { title: 'واحدها',    icon: 'corporate_fare',  to: '/units',      roles: ['ADMIN'] },
-      { title: 'نقش‌ها',    icon: 'manage_accounts', to: '/roles',      roles: ['ADMIN'] },
-      { title: 'کاربران',   icon: 'group',           to: '/users',      roles: ['ADMIN'] },
-      { title: 'اهداف',     icon: 'track_changes',   to: '/targets',    roles: ['ADMIN'] },
-      { title: 'برنامه‌ها', icon: 'event_note',      to: '/programs',   roles: ['ADMIN', 'UNIT_USER'] },
-      { title: 'اقدامات',   icon: 'checklist_rtl',   to: '/tasks',      roles: ['ADMIN', 'UNIT_USER'] },
-      { title: 'فعالیت‌ها', icon: 'article',         to: '/activities', roles: ['ADMIN', 'UNIT_USER'] },
-      { title: 'کاربرگ‌ها', icon: 'description',     to: '/forms',      roles: ['ADMIN', 'UNIT_USER'] },  // اضافه شده
-      { title: 'گزارش‌ها',  icon: 'insert_chart',    to: '/reports',    roles: ['ADMIN', 'UNIT_USER'] },
+      { title: 'داشبورد',            icon: 'dashboard',       to: '/dashboard',  roles: ['ADMIN', 'UNIT_USER'], type: 'link' },
+      { title: 'واحدها',             icon: 'corporate_fare',  to: '/units',      roles: ['ADMIN'], type: 'link' },
+      { title: 'نقش‌ها',             icon: 'manage_accounts', to: '/roles',      roles: ['ADMIN'], type: 'link' },
+      { title: 'کاربران',            icon: 'group',           to: '/users',      roles: ['ADMIN'], type: 'link' },
+      { title: 'اهداف',              icon: 'track_changes',   to: '/targets',    roles: ['ADMIN', 'UNIT_USER'], type: 'tree' },
+      { title: 'مدیریت کاربرگ‌ها',   icon: 'description',     to: '/forms',      roles: ['ADMIN', 'UNIT_USER'], type: 'link' },
+      { title: 'گزارش‌ها',           icon: 'insert_chart',    to: '/reports',    roles: ['ADMIN', 'UNIT_USER'], type: 'link' },
     ]
 
     const menuItems = computed(() => {
@@ -171,9 +469,6 @@ export default {
       '/roles':      'مدیریت نقش‌ها',
       '/users':      'مدیریت کاربران',
       '/targets':    'مدیریت اهداف',
-      '/programs':   'مدیریت برنامه‌ها',
-      '/tasks':      'مدیریت اقدامات',
-      '/activities': 'مدیریت فعالیت‌ها',
       '/forms':      'مدیریت کاربرگ‌ها',
       '/reports':    'گزارش‌گیری',
     }
@@ -260,7 +555,28 @@ export default {
       userFullName,
       userInitial,
       userRole: userRoleName,
-      userEmail
+      userEmail,
+      targets,
+      programs,
+      tasks,
+      activities,
+      expandedTargets,
+      expandedPrograms,
+      expandedTasks,
+      selectedTargetId,
+      selectedProgramId,
+      selectedTaskId,
+      selectedActivityId,
+      getProgramsByTarget,
+      getTasksByProgram,
+      getActivitiesByTask,
+      toggleTarget,
+      toggleProgram,
+      toggleTask,
+      navigateToTarget,
+      navigateToProgram,
+      navigateToTask,
+      navigateToActivity
     }
   }
 }
@@ -294,8 +610,21 @@ export default {
   direction: rtl;
 }
 
-.header-start { display: flex; align-items: center; gap: 10px; }
-.header-end   { display: flex; align-items: center; gap: 4px; }
+.header-start { display: flex; align-items: center; gap: 10px; flex: 1; }
+.header-center { display: flex; align-items: center; justify-content: center; flex: 1; }
+.header-end   { display: flex; align-items: center; gap: 4px; flex: 1; justify-content: flex-end; }
+
+.app-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #1e8a5e, #4caf87);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 8px rgba(30,138,94,.1);
+  letter-spacing: -0.3px;
+}
 
 .menu-toggle {
   width: 34px; height: 34px;
@@ -481,6 +810,9 @@ export default {
       border-radius: 0 3px 3px 0;
     }
   }
+  &--tree {
+    margin-bottom: 4px;
+  }
 }
 .nav-icon {
   width: 28px;
@@ -499,6 +831,242 @@ export default {
   font-size: 12.5px;
   font-weight: 600;
   flex: 1;
+}
+
+// ساختار درختی
+.tree-structure {
+  margin: 0 4px 8px 4px;
+  padding: 6px 0;
+  background: rgba(0,0,0,.15);
+  border-radius: 8px;
+  border: 1px solid rgba(76,175,135,.15);
+}
+
+.tree-empty {
+  padding: 12px 16px;
+  text-align: center;
+  color: #6fb392;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: all .15s;
+  color: #6fb392;
+  font-size: 12px;
+  border-radius: 6px;
+  margin: 2px 0;
+  
+  &:hover {
+    background: rgba(255,255,255,.08);
+    color: #b8e4cb;
+  }
+
+  &--leaf {
+    font-style: italic;
+    opacity: 0.9;
+  }
+
+  &--selected {
+    background: rgba(76,175,135,.25) !important;
+    color: #fff !important;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(76,175,135,.2);
+    
+    .tree-item-icon {
+      color: #4caf87 !important;
+      background: rgba(76,175,135,.3);
+      border-radius: 4px;
+      padding: 2px;
+    }
+  }
+}
+
+.tree-expand-icon {
+  color: #6fb392;
+  flex-shrink: 0;
+  transition: all .2s;
+  cursor: pointer;
+  
+  &:hover {
+    color: #4caf87;
+    transform: scale(1.15);
+  }
+}
+
+.tree-expand-spacer {
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.tree-item-icon {
+  color: #6fb392;
+  flex-shrink: 0;
+  transition: all .15s;
+}
+
+.tree-item-label {
+  flex: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// سطح 1: اهداف (Targets) - رنگ سبز تیره
+.tree-level-1 {
+  margin: 3px 6px;
+  
+  > .tree-item {
+    background: rgba(21, 128, 61, 0.12); // green-700
+    border-right: 3px solid #15803d;
+    font-weight: 700;
+    font-size: 12.5px;
+    padding: 8px 10px;
+    box-shadow: 0 1px 3px rgba(21, 128, 61, 0.2);
+    color: #d1fae5; // green-100
+    
+    .tree-item-icon {
+      color: #86efac; // green-300
+      font-size: 16px;
+      background: rgba(255,255,255,.15);
+      border-radius: 4px;
+      padding: 3px;
+    }
+    
+    &:hover {
+      background: rgba(21, 128, 61, 0.25);
+      transform: translateX(-2px);
+      box-shadow: 0 2px 6px rgba(21, 128, 61, 0.3);
+    }
+    
+    &.tree-item--selected {
+      background: rgba(21, 128, 61, 0.4) !important;
+      border-right-color: #86efac;
+      box-shadow: 0 3px 8px rgba(21, 128, 61, 0.4);
+      color: #fff !important;
+    }
+  }
+}
+
+// سطح 2: برنامه‌ها (Programs) - رنگ آبی
+.tree-level-2 {
+  margin-right: 18px;
+  margin-top: 3px;
+  margin-bottom: 3px;
+  
+  .tree-item {
+    background: rgba(37, 99, 235, 0.12); // blue-600
+    border-right: 2px solid #2563eb;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 7px 9px;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.15);
+    color: #dbeafe; // blue-100
+    
+    .tree-item-icon {
+      color: #93c5fd; // blue-300
+      font-size: 15px;
+      background: rgba(255,255,255,.12);
+      border-radius: 4px;
+      padding: 2px;
+    }
+    
+    &:hover {
+      background: rgba(37, 99, 235, 0.22);
+      transform: translateX(-2px);
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+    }
+    
+    &.tree-item--selected {
+      background: rgba(37, 99, 235, 0.35) !important;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+      color: #fff !important;
+    }
+  }
+}
+
+// سطح 3: اقدامات (Tasks) - رنگ بنفش
+.tree-level-3 {
+  margin-right: 18px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  
+  .tree-item {
+    background: rgba(168, 85, 247, 0.12); // purple-500
+    border-right: 2px solid #a855f7;
+    font-weight: 500;
+    font-size: 11.5px;
+    padding: 6px 8px;
+    box-shadow: 0 1px 2px rgba(168, 85, 247, 0.12);
+    color: #f3e8ff; // purple-100
+    
+    .tree-item-icon {
+      color: #d8b4fe; // purple-300
+      font-size: 14px;
+      background: rgba(255,255,255,.1);
+      border-radius: 3px;
+      padding: 2px;
+    }
+    
+    &:hover {
+      background: rgba(168, 85, 247, 0.2);
+      transform: translateX(-2px);
+      box-shadow: 0 2px 4px rgba(168, 85, 247, 0.2);
+    }
+    
+    &.tree-item--selected {
+      background: rgba(168, 85, 247, 0.32) !important;
+      box-shadow: 0 2px 5px rgba(168, 85, 247, 0.25);
+      color: #fff !important;
+    }
+  }
+}
+
+// سطح 4: فعالیت‌ها (Activities) - رنگ نارنجی
+.tree-level-4 {
+  margin-right: 18px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  
+  .tree-item {
+    background: rgba(249, 115, 22, 0.12); // orange-500
+    border-right: 1px solid #f97316;
+    font-weight: 400;
+    font-size: 11px;
+    padding: 5px 8px;
+    font-style: italic;
+    opacity: 0.95;
+    box-shadow: 0 1px 2px rgba(249, 115, 22, 0.1);
+    color: #fed7aa; // orange-200
+    
+    .tree-item-icon {
+      color: #fdba74; // orange-300
+      font-size: 13px;
+      background: rgba(255,255,255,.08);
+      border-radius: 3px;
+      padding: 2px;
+    }
+    
+    &:hover {
+      background: rgba(249, 115, 22, 0.2);
+      transform: translateX(-2px);
+      opacity: 1;
+      box-shadow: 0 2px 4px rgba(249, 115, 22, 0.18);
+    }
+    
+    &.tree-item--selected {
+      background: rgba(249, 115, 22, 0.3) !important;
+      opacity: 1;
+      box-shadow: 0 2px 5px rgba(249, 115, 22, 0.25);
+      color: #fff !important;
+    }
+  }
 }
 
 .sidebar-footer {

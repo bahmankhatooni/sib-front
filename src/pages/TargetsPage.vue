@@ -1,496 +1,703 @@
 <!-- src/pages/TargetsPage.vue -->
 <template>
-  <div class="page-root">
+  <div class="targets-page">
+    <!-- نمایش اهداف -->
+    <div v-if="viewMode === 'targets'" class="content-section">
+      <div class="section-header">
+        <h2>اهداف</h2>
+        <q-btn 
+          v-if="isAdmin"
+          unelevated 
+          color="primary" 
+          icon="add" 
+          label="افزودن هدف" 
+          @click="openTargetDialog()"
+        />
+      </div>
 
-    <PageHeader title="مدیریت اهداف" subtitle="تعریف و مدیریت اهداف برنامه عملیاتی" icon="track_changes">
-      <q-btn unelevated color="primary" icon="add" label="هدف جدید" @click="openDialog()" />
-    </PageHeader>
-
-    <div class="filter-bar">
-      <q-input
-        v-model="search"
-        outlined
-        dense
-        placeholder="جستجو در عنوان یا کد هدف..."
-        clearable
-        style="max-width:320px"
-        @update:model-value="handleSearch"
+      <q-table
+        :rows="targets"
+        :columns="targetColumns"
+        row-key="id"
+        :loading="loading"
+        :rows-per-page-options="[10, 25, 50]"
+        :pagination="{ rowsPerPage: 10 }"
+        flat
+        bordered
+        class="data-table"
       >
-        <template #prepend><q-icon name="search" size="18px" color="grey-5" /></template>
-      </q-input>
-      <q-select
-        v-model="yearFilter"
-        outlined
-        dense
-        :options="yearOpts"
-        label="سال"
-        clearable
-        style="min-width:140px"
-        @update:model-value="handleYearFilter"
-      />
-      <span class="stat-chip">{{ pagination.total }} هدف</span>
+        <template #body-cell-code="props">
+          <q-td :props="props">{{ truncateText(props.row.code, 20) }}</q-td>
+        </template>
+        <template #body-cell-title="props">
+          <q-td :props="props">{{ truncateText(props.row.title, 50) }}</q-td>
+        </template>
+        <template #body-cell-year="props">
+          <q-td :props="props">{{ truncateText(props.row.year, 20) }}</q-td>
+        </template>
+        <template #body-cell-programs="props">
+          <q-td :props="props">
+            <q-chip size="sm" color="primary" text-color="white">
+              {{ getProgramsCount(props.row.id) }}
+            </q-chip>
+          </q-td>
+        </template>
+        <template #body-cell-actions="props">
+          <q-td :props="props">
+            <q-btn 
+              v-if="isAdmin"
+              flat dense round icon="edit" color="primary" size="sm"
+              @click="openTargetDialog(props.row)"
+            />
+            <q-btn 
+              v-if="isAdmin"
+              flat dense round icon="delete" color="negative" size="sm"
+              @click="deleteTarget(props.row.id)"
+            />
+          </q-td>
+        </template>
+      </q-table>
     </div>
 
-    <SortableTable :columns="columns" :rows="rows" empty-icon="track_changes" empty-text="هدفی یافت نشد" default-sort="title" :loading="loading">
-      <template #default="{ row, index }">
-        <td class="text-center">{{ (pagination.current_page - 1) * pagination.per_page + index + 1 }}</td>
-        <td><code class="code-chip">{{ row.code }}</code></td>
-        <td><span class="row-name">{{ row.title }}</span></td>
-        <td class="date-cell">{{ row.year }}</td>
-        <td>
-          <div class="prog-wrap">
-            <div class="prog-track"><div class="prog-fill" :style="{ width: (row.progress || 0) + '%' }"></div></div>
-            <span class="prog-text">{{ row.progress || 0 }}%</span>
-          </div>
-        </td>
-        <td>
-          <span class="count-badge">
-            <q-icon name="event_note" size="13px" class="q-ml-xs" />{{ row.programs_count || 0 }}
-          </span>
-        </td>
-        <td>
-          <div class="action-btns">
-            <button class="act-btn act-view"   @click="viewPrograms(row)" title="برنامه‌ها"><q-icon name="list" size="16px" /></button>
-            <button class="act-btn act-edit"   @click="openDialog(row)"   title="ویرایش"><q-icon name="edit" size="16px" /></button>
-            <button class="act-btn act-delete" @click="deleteRow(row)"    title="حذف"><q-icon name="delete_outline" size="16px" /></button>
-          </div>
-        </td>
-      </template>
-    </SortableTable>
+    <!-- نمایش برنامه‌ها -->
+    <div v-if="viewMode === 'programs'" class="content-section">
+      <div class="section-header">
+        <h2>برنامه‌های هدف: {{ selectedTargetTitle }}</h2>
+        <q-btn 
+          unelevated 
+          color="primary" 
+          icon="add" 
+          label="افزودن برنامه" 
+          @click="openProgramDialog()"
+        />
+      </div>
 
-    <!-- Pagination -->
-    <div class="pagination-wrapper" v-if="pagination.last_page > 1">
-      <q-pagination
-        v-model="pagination.current_page"
-        :max="pagination.last_page"
-        :max-pages="5"
-        direction-links
-        boundary-links
-        @update:model-value="goToPage"
-      />
-      <span class="pagination-info">
-        نمایش {{ ((pagination.current_page - 1) * pagination.per_page) + 1 }} تا
-        {{ Math.min(pagination.current_page * pagination.per_page, pagination.total) }} از
-        {{ pagination.total }} هدف
-      </span>
+      <q-table
+        :rows="filteredPrograms"
+        :columns="programColumns"
+        row-key="id"
+        :loading="loading"
+        :rows-per-page-options="[10, 25, 50]"
+        :pagination="{ rowsPerPage: 10 }"
+        flat
+        bordered
+        class="data-table"
+      >
+        <template #body-cell-title="props">
+          <q-td :props="props">{{ truncateText(props.row.title, 50) }}</q-td>
+        </template>
+        <template #body-cell-target="props">
+          <q-td :props="props">{{ truncateText(props.row.target?.title, 50) }}</q-td>
+        </template>
+        <template #body-cell-tasks="props">
+          <q-td :props="props">
+            <q-chip size="sm" color="primary" text-color="white">
+              {{ getTasksCount(props.row.id) }}
+            </q-chip>
+          </q-td>
+        </template>
+        <template #body-cell-actions="props">
+          <q-td :props="props">
+            <q-btn flat dense round icon="edit" color="primary" size="sm"
+              @click="openProgramDialog(props.row)"
+            />
+            <q-btn flat dense round icon="delete" color="negative" size="sm"
+              @click="deleteProgram(props.row.id)"
+            />
+          </q-td>
+        </template>
+      </q-table>
     </div>
 
-    <!-- دیالوگ ایجاد/ویرایش -->
-    <q-dialog v-model="dialog" persistent>
+    <!-- نمایش اقدامات -->
+    <div v-if="viewMode === 'tasks'" class="content-section">
+      <div class="section-header">
+        <h2>اقدامات برنامه: {{ selectedProgramTitle }}</h2>
+        <q-btn 
+          unelevated 
+          color="primary" 
+          icon="add" 
+          label="افزودن اقدام" 
+          @click="openTaskDialog()"
+        />
+      </div>
+
+      <q-table
+        :rows="filteredTasks"
+        :columns="taskColumns"
+        row-key="id"
+        :loading="loading"
+        :rows-per-page-options="[10, 25, 50]"
+        :pagination="{ rowsPerPage: 10 }"
+        flat
+        bordered
+        class="data-table"
+      >
+        <template #body-cell-code="props">
+          <q-td :props="props">{{ truncateText(props.row.code, 20) }}</q-td>
+        </template>
+        <template #body-cell-title="props">
+          <q-td :props="props">{{ truncateText(props.row.title, 50) }}</q-td>
+        </template>
+        <template #body-cell-target="props">
+          <q-td :props="props">{{ truncateText(props.row.target?.title, 50) }}</q-td>
+        </template>
+        <template #body-cell-program="props">
+          <q-td :props="props">{{ truncateText(props.row.program?.title, 50) }}</q-td>
+        </template>
+        <template #body-cell-activities="props">
+          <q-td :props="props">
+            <q-chip size="sm" color="primary" text-color="white">
+              {{ getActivitiesCount(props.row.id) }}
+            </q-chip>
+          </q-td>
+        </template>
+        <template #body-cell-actions="props">
+          <q-td :props="props">
+            <q-btn flat dense round icon="edit" color="primary" size="sm"
+              @click="openTaskDialog(props.row)"
+            />
+            <q-btn flat dense round icon="delete" color="negative" size="sm"
+              @click="deleteTask(props.row.id)"
+            />
+          </q-td>
+        </template>
+      </q-table>
+    </div>
+
+    <!-- نمایش فعالیت‌ها -->
+    <div v-if="viewMode === 'activities'" class="content-section">
+      <div class="section-header">
+        <h2>فعالیت‌های اقدام: {{ selectedTaskTitle }}</h2>
+      </div>
+
+      <q-table
+        :rows="filteredActivities"
+        :columns="activityColumns"
+        row-key="id"
+        :loading="loading"
+        :rows-per-page-options="[10, 25, 50]"
+        :pagination="{ rowsPerPage: 10 }"
+        flat
+        bordered
+        class="data-table"
+      >
+        <template #body-cell-title="props">
+          <q-td :props="props">{{ truncateText(props.row.title, 50) }}</q-td>
+        </template>
+        <template #body-cell-indicator="props">
+          <q-td :props="props">{{ truncateText(props.row.indicator, 50) }}</q-td>
+        </template>
+        <template #body-cell-measure="props">
+          <q-td :props="props">{{ truncateText(props.row.measure, 50) }}</q-td>
+        </template>
+        <template #body-cell-responsible="props">
+          <q-td :props="props">{{ truncateText(props.row.responsible, 50) }}</q-td>
+        </template>
+        <template #body-cell-collaborator="props">
+          <q-td :props="props">{{ truncateText(props.row.collaborator, 50) }}</q-td>
+        </template>
+        <template #body-cell-report="props">
+          <q-td :props="props">
+            <q-btn 
+              v-if="props.row.form_code"
+              flat 
+              dense 
+              color="primary" 
+              :label="props.row.form_code"
+              @click="openForm(props.row.form_code)"
+            />
+            <q-btn 
+              v-else-if="props.row.report"
+              flat 
+              dense 
+              color="positive" 
+              label="اقدام شده"
+              @click="viewReport(props.row)"
+            />
+            <q-btn 
+              v-else
+              flat 
+              dense 
+              color="secondary" 
+              label="ثبت گزارش"
+              @click="openReportDialog(props.row)"
+            />
+          </q-td>
+        </template>
+        <template #body-cell-actions="props">
+          <q-td :props="props">
+            <q-btn 
+              flat dense round icon="visibility" color="info" size="sm"
+              @click="viewReport(props.row)"
+              title="نمایش گزارش"
+            />
+          </q-td>
+        </template>
+      </q-table>
+    </div>
+
+    <!-- دیالوگ‌ها -->
+    <q-dialog v-model="targetDialog" persistent>
       <div class="form-dialog">
         <div class="dialog-head">
-          <h3>{{ editing ? 'ویرایش هدف' : 'هدف جدید' }}</h3>
-          <button class="dialog-close" @click="dialog=false"><q-icon name="close" size="20px" /></button>
+          <h3>{{ editingTarget ? 'ویرایش هدف' : 'افزودن هدف' }}</h3>
+          <button class="dialog-close" @click="targetDialog=false">
+            <q-icon name="close" size="20px" />
+          </button>
         </div>
         <div class="dialog-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label>کد هدف <span class="req">*</span></label>
-              <q-input v-model="form.code" outlined dense hide-bottom-space />
-            </div>
-            <div class="form-group">
-              <label>سال اجرا <span class="req">*</span></label>
-              <q-select v-model="form.year" outlined dense :options="yearOpts" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>عنوان هدف <span class="req">*</span></label>
-            <q-input v-model="form.title" outlined dense hide-bottom-space />
-          </div>
-          <div class="form-group">
-            <label>توضیحات</label>
-            <q-input v-model="form.description" outlined dense type="textarea" rows="3" />
-          </div>
+          <q-input v-model="targetForm.code" label="کد هدف" outlined dense />
+          <q-input v-model="targetForm.title" label="عنوان هدف" outlined dense />
+          <q-input v-model="targetForm.year" label="سال" outlined dense />
+          <q-select 
+            v-if="isAdmin"
+            v-model="targetForm.unit_id" 
+            :options="unitOptions" 
+            label="واحد" 
+            outlined 
+            dense 
+            emit-value
+            map-options
+          />
         </div>
-        <div class="dialog-foot">
-          <q-btn flat label="انصراف" @click="dialog=false" />
-          <q-btn unelevated color="primary" :label="editing ? 'ذخیره' : 'ایجاد'" @click="save" :loading="saving" />
+        <div class="dialog-actions">
+          <q-btn label="انصراف" flat @click="targetDialog=false" />
+          <q-btn label="ذخیره" color="primary" unelevated @click="saveTarget" :loading="saving" />
         </div>
       </div>
     </q-dialog>
 
-    <!-- دیالوگ برنامه‌ها -->
-    <q-dialog v-model="programsDialog" persistent>
+    <!-- سایر دیالوگ‌ها به همین شکل... -->
+    <q-dialog v-model="reportDialog" persistent>
       <div class="form-dialog">
         <div class="dialog-head">
-          <h3>برنامه‌های هدف: {{ selectedTarget?.title }}</h3>
-          <button class="dialog-close" @click="programsDialog=false"><q-icon name="close" size="20px" /></button>
+          <h3>ثبت گزارش عملکرد</h3>
+          <button class="dialog-close" @click="reportDialog=false">
+            <q-icon name="close" size="20px" />
+          </button>
         </div>
         <div class="dialog-body">
-          <div class="sub-list" v-if="targetPrograms.length > 0">
-            <div class="sub-item" v-for="p in targetPrograms" :key="p.id">
-              <div class="sub-icon"><q-icon name="event_note" size="16px" /></div>
-              <div class="sub-info">
-                <span class="sub-name">{{ p.title }}</span>
-                <span class="sub-meta">{{ p.code }}</span>
-              </div>
-              <div class="prog-wrap" style="min-width:100px">
-                <div class="prog-track"><div class="prog-fill" :style="{ width: (p.progress || 0) + '%' }"></div></div>
-                <span class="prog-text">{{ p.progress || 0 }}%</span>
-              </div>
-            </div>
-          </div>
-          <div v-else class="empty-programs">
-            <q-icon name="info" size="32px" color="grey-4" />
-            <p>برنامه‌ای برای این هدف تعریف نشده است</p>
-          </div>
+          <q-input 
+            v-model="reportText" 
+            label="توضیحات گزارش" 
+            type="textarea"
+            rows="5"
+            outlined 
+          />
         </div>
-        <div class="dialog-foot">
-          <q-btn flat label="بستن" @click="programsDialog=false" />
+        <div class="dialog-actions">
+          <q-btn label="انصراف" flat @click="reportDialog=false" />
+          <q-btn label="ذخیره" color="primary" unelevated @click="saveReport" :loading="saving" />
         </div>
       </div>
     </q-dialog>
 
+    <!-- دیالوگ نمایش گزارش -->
+    <q-dialog v-model="viewReportDialog" persistent>
+      <div class="form-dialog">
+        <div class="dialog-head">
+          <h3>نمایش گزارش عملکرد</h3>
+          <button class="dialog-close" @click="viewReportDialog=false">
+            <q-icon name="close" size="20px" />
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div class="report-view">
+            <p>{{ viewingReport }}</p>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <q-btn label="بستن" color="primary" unelevated @click="viewReportDialog=false" />
+        </div>
+      </div>
+    </q-dialog>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { api } from 'src/boot/axios'
-import PageHeader from 'components/PageHeader.vue'
-import SortableTable from 'components/SortableTable.vue'
 
 export default {
-  components: { PageHeader, SortableTable },
-  setup () {
+  setup() {
     const $q = useQuasar()
-    const search = ref('')
-    const yearFilter = ref(null)
-    const dialog = ref(false)
-    const programsDialog = ref(false)
-    const editing = ref(null)
-    const selectedTarget = ref(null)
+    const router = useRouter()
+    const route = useRoute()
+
     const loading = ref(false)
     const saving = ref(false)
-    const rows = ref([])
-    const targetPrograms = ref([])
+    const targets = ref([])
+    const programs = ref([])
+    const tasks = ref([])
+    const activities = ref([])
+    const units = ref([])
 
-    // Pagination state
-    const pagination = ref({
-      current_page: 1,
-      last_page: 1,
-      per_page: 10,
-      total: 0
+    const targetDialog = ref(false)
+    const reportDialog = ref(false)
+    const viewReportDialog = ref(false)
+    const editingTarget = ref(null)
+    const targetForm = ref({ code: '', title: '', year: '', unit_id: null })
+    const reportText = ref('')
+    const reportingActivity = ref(null)
+    const viewingReport = ref('')
+
+    // اطلاعات کاربر
+    const userData = ref(null)
+    const loadUserData = () => {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        try {
+          userData.value = JSON.parse(userStr)
+        } catch (e) {
+          userData.value = null
+        }
+      }
+    }
+
+    const isAdmin = computed(() => userData.value?.role?.code === 'ADMIN')
+    const userUnitId = computed(() => userData.value?.unit_id)
+
+    // تشخیص حالت نمایش بر اساس query parameters
+    const viewMode = computed(() => {
+      if (route.query.task_id) return 'activities'
+      if (route.query.program_id) return 'tasks'
+      if (route.query.target_id) return 'programs'
+      return 'targets'
     })
 
-    const yearOpts = ['1403', '1404', '1405', '1406']
+    const selectedTargetId = computed(() => route.query.target_id ? parseInt(route.query.target_id) : null)
+    const selectedProgramId = computed(() => route.query.program_id ? parseInt(route.query.program_id) : null)
+    const selectedTaskId = computed(() => route.query.task_id ? parseInt(route.query.task_id) : null)
 
-    const columns = [
-      { key: 'index', label: '#', sortable: false },
-      { key: 'code', label: 'کد هدف', sortable: true },
-      { key: 'title', label: 'عنوان هدف', sortable: true },
-      { key: 'year', label: 'سال', sortable: true },
-      { key: 'progress', label: 'پیشرفت', sortable: true },
-      { key: 'programs_count', label: 'برنامه‌ها', sortable: true },
-      { key: 'actions', label: 'عملیات', sortable: false },
+    const selectedTargetTitle = computed(() => {
+      const target = targets.value.find(t => t.id === selectedTargetId.value)
+      return target ? target.title : ''
+    })
+
+    const selectedProgramTitle = computed(() => {
+      const program = programs.value.find(p => p.id === selectedProgramId.value)
+      return program ? program.title : ''
+    })
+
+    const selectedTaskTitle = computed(() => {
+      const task = tasks.value.find(t => t.id === selectedTaskId.value)
+      return task ? task.title : ''
+    })
+
+    const filteredPrograms = computed(() => {
+      if (!selectedTargetId.value) return programs.value
+      return programs.value.filter(p => p.target_id === selectedTargetId.value)
+    })
+
+    const filteredTasks = computed(() => {
+      if (!selectedProgramId.value) return tasks.value
+      return tasks.value.filter(t => t.program_id === selectedProgramId.value)
+    })
+
+    const filteredActivities = computed(() => {
+      if (!selectedTaskId.value) return activities.value
+      return activities.value.filter(a => a.task_id === selectedTaskId.value)
+    })
+
+    // ستون‌های جداول
+    const targetColumns = [
+      { name: 'code', label: 'کد هدف', field: 'code', align: 'right', sortable: true },
+      { name: 'title', label: 'عنوان هدف', field: 'title', align: 'right', sortable: true },
+      { name: 'year', label: 'سال', field: 'year', align: 'right', sortable: true },
+      { name: 'programs', label: 'برنامه‌ها', field: 'programs', align: 'center' },
+      { name: 'actions', label: 'عملیات', field: 'actions', align: 'center' }
     ]
 
-    const emptyForm = () => ({
-      code: '',
-      title: '',
-      year: '',
-      description: ''
-    })
-    const form = ref(emptyForm())
+    const programColumns = [
+      { name: 'title', label: 'عنوان برنامه', field: 'title', align: 'right', sortable: true },
+      { name: 'target', label: 'هدف مرتبط', field: 'target', align: 'right' },
+      { name: 'tasks', label: 'اقدامات', field: 'tasks', align: 'center' },
+      { name: 'actions', label: 'عملیات', field: 'actions', align: 'center' }
+    ]
 
-    // ============================================================
-    // دریافت لیست اهداف از API با صفحه‌بندی
-    // ============================================================
-    const fetchTargets = async () => {
+    const taskColumns = [
+      { name: 'code', label: 'کد اقدام', field: 'code', align: 'right', sortable: true },
+      { name: 'title', label: 'عنوان اقدام', field: 'title', align: 'right', sortable: true },
+      { name: 'target', label: 'هدف', field: 'target', align: 'right' },
+      { name: 'program', label: 'برنامه', field: 'program', align: 'right' },
+      { name: 'activities', label: 'تعداد فعالیت', field: 'activities', align: 'center' },
+      { name: 'actions', label: 'عملیات', field: 'actions', align: 'center' }
+    ]
+
+    const activityColumns = [
+      { name: 'title', label: 'عنوان فعالیت', field: 'title', align: 'right', sortable: true },
+      { name: 'indicator', label: 'شاخص', field: 'indicator', align: 'right' },
+      { name: 'measure', label: 'سنجه', field: 'measure', align: 'right' },
+      { name: 'responsible', label: 'مجری', field: 'responsible', align: 'right' },
+      { name: 'collaborator', label: 'همکار', field: 'collaborator', align: 'right' },
+      { name: 'report', label: 'گزارش عملکرد / کاربرگ', field: 'report', align: 'center' },
+      { name: 'actions', label: 'عملیات', field: 'actions', align: 'center' }
+    ]
+
+    const unitOptions = computed(() => 
+      units.value.map(u => ({ label: u.name, value: u.id }))
+    )
+
+    const getFilterParams = () => {
+      if (isAdmin.value) return {}
+      return { unit_id: userUnitId.value }
+    }
+
+    const getProgramsCount = (targetId) => {
+      return programs.value.filter(p => p.target_id === targetId).length
+    }
+
+    const getTasksCount = (programId) => {
+      return tasks.value.filter(t => t.program_id === programId).length
+    }
+
+    const getActivitiesCount = (taskId) => {
+      return activities.value.filter(a => a.task_id === taskId).length
+    }
+
+    const loadData = async () => {
       loading.value = true
       try {
-        let url = `/targets?page=${pagination.value.current_page}&per_page=${pagination.value.per_page}`
+        const filterParams = getFilterParams()
+        
+        const [targetsRes, programsRes, tasksRes, activitiesRes, unitsRes] = await Promise.all([
+          api.get('/targets', { params: { ...filterParams, per_page: 100 } }),
+          api.get('/programs', { params: { ...filterParams, per_page: 100 } }),
+          api.get('/tasks', { params: { ...filterParams, per_page: 100 } }),
+          api.get('/activities', { params: { ...filterParams, per_page: 100 } }),
+          isAdmin.value ? api.get('/units', { params: { per_page: 100 } }) : Promise.resolve({ data: { data: [] } })
+        ])
 
-        if (search.value) {
-          url += `&search=${encodeURIComponent(search.value)}`
-        }
-        if (yearFilter.value) {
-          url += `&year=${yearFilter.value}`
-        }
-
-        const response = await api.get(url)
-
-        if (response.data.success) {
-          rows.value = response.data.data
-          pagination.value = {
-            current_page: response.data.pagination.current_page,
-            last_page: response.data.pagination.last_page,
-            per_page: response.data.pagination.per_page,
-            total: response.data.pagination.total
-          }
-        } else {
-          $q.notify({
-            type: 'negative',
-            message: response.data.message || 'خطا در دریافت اهداف',
-            position: 'top'
-          })
-        }
+        targets.value = targetsRes.data.data || []
+        programs.value = programsRes.data.data || []
+        tasks.value = tasksRes.data.data || []
+        activities.value = activitiesRes.data.data || []
+        units.value = unitsRes.data.data || []
       } catch (error) {
-        console.error('Fetch targets error:', error)
-        $q.notify({
-          type: 'negative',
-          message: error.response?.data?.message || 'خطا در ارتباط با سرور',
-          position: 'top'
-        })
+        console.error('Load data error:', error)
+        $q.notify({ type: 'negative', message: 'خطا در بارگذاری داده‌ها' })
       } finally {
         loading.value = false
       }
     }
 
-    // ============================================================
-    // دریافت برنامه‌های یک هدف
-    // ============================================================
-    const fetchTargetPrograms = async (targetId) => {
-      try {
-        const response = await api.get(`/targets/${targetId}`)
-        if (response.data.success) {
-          targetPrograms.value = response.data.data.programs || []
-        }
-      } catch (error) {
-        console.error('Fetch target programs error:', error)
-        targetPrograms.value = []
-      }
-    }
-
-    // ============================================================
-    // جستجو
-    // ============================================================
-    const handleSearch = () => {
-      pagination.value.current_page = 1
-      fetchTargets()
-    }
-
-    // ============================================================
-    // فیلتر بر اساس سال
-    // ============================================================
-    const handleYearFilter = () => {
-      pagination.value.current_page = 1
-      fetchTargets()
-    }
-
-    // ============================================================
-    // رفتن به صفحه مشخص
-    // ============================================================
-    const goToPage = (page) => {
-      pagination.value.current_page = page
-      fetchTargets()
-    }
-
-    // ============================================================
-    // باز کردن دیالوگ (ایجاد یا ویرایش)
-    // ============================================================
-    const openDialog = (row = null) => {
-      editing.value = row
-      if (row) {
-        form.value = {
-          code: row.code,
-          title: row.title,
-          year: row.year,
-          description: row.description || ''
-        }
+    const openTargetDialog = (target = null) => {
+      if (target) {
+        editingTarget.value = target
+        targetForm.value = { ...target }
       } else {
-        form.value = emptyForm()
+        editingTarget.value = null
+        targetForm.value = { code: '', title: '', year: '', unit_id: userUnitId.value }
       }
-      dialog.value = true
+      targetDialog.value = true
     }
 
-    // ============================================================
-    // مشاهده برنامه‌های هدف
-    // ============================================================
-    const viewPrograms = async (row) => {
-      selectedTarget.value = row
-      await fetchTargetPrograms(row.id)
-      programsDialog.value = true
-    }
-
-    // ============================================================
-    // ذخیره هدف (ایجاد یا ویرایش)
-    // ============================================================
-    const save = async () => {
-      if (!form.value.code || !form.value.title || !form.value.year) {
-        $q.notify({
-          type: 'negative',
-          message: 'کد، عنوان و سال الزامی هستند',
-          position: 'top'
-        })
-        return
-      }
-
+    const saveTarget = async () => {
       saving.value = true
-
       try {
-        if (editing.value) {
-          // ویرایش هدف
-          const response = await api.put(`/targets/${editing.value.id}`, form.value)
-
-          if (response.data.success) {
-            $q.notify({
-              type: 'positive',
-              message: 'هدف با موفقیت ویرایش شد',
-              position: 'top'
-            })
-            await fetchTargets()
-            dialog.value = false
-          } else {
-            $q.notify({
-              type: 'negative',
-              message: response.data.message || 'خطا در ویرایش هدف',
-              position: 'top'
-            })
-          }
+        if (editingTarget.value) {
+          await api.put(`/targets/${editingTarget.value.id}`, targetForm.value)
+          $q.notify({ type: 'positive', message: 'هدف با موفقیت ویرایش شد' })
         } else {
-          // ایجاد هدف جدید
-          const response = await api.post('/targets', form.value)
-
-          if (response.data.success) {
-            $q.notify({
-              type: 'positive',
-              message: 'هدف جدید با موفقیت ایجاد شد',
-              position: 'top'
-            })
-            await fetchTargets()
-            dialog.value = false
-          } else {
-            $q.notify({
-              type: 'negative',
-              message: response.data.message || 'خطا در ایجاد هدف',
-              position: 'top'
-            })
-          }
+          await api.post('/targets', targetForm.value)
+          $q.notify({ type: 'positive', message: 'هدف با موفقیت اضافه شد' })
         }
+        targetDialog.value = false
+        loadData()
       } catch (error) {
-        console.error('Save target error:', error)
-
-        if (error.response?.status === 422 && error.response?.data?.errors) {
-          const errors = error.response.data.errors
-          const firstError = Object.values(errors)[0]?.[0]
-          $q.notify({
-            type: 'negative',
-            message: firstError || 'خطا در اعتبارسنجی اطلاعات',
-            position: 'top'
-          })
-        } else {
-          $q.notify({
-            type: 'negative',
-            message: error.response?.data?.message || 'خطا در ارتباط با سرور',
-            position: 'top'
-          })
-        }
+        $q.notify({ type: 'negative', message: 'خطا در ذخیره هدف' })
       } finally {
         saving.value = false
       }
     }
 
-    // ============================================================
-    // حذف هدف
-    // ============================================================
-    const deleteRow = (row) => {
+    const deleteTarget = (id) => {
       $q.dialog({
         title: 'حذف هدف',
-        message: `آیا از حذف "${row.title}" مطمئنید؟`,
-        cancel: { label: 'انصراف', flat: true },
-        ok: { label: 'حذف', color: 'negative', unelevated: true },
+        message: 'آیا از حذف این هدف مطمئن هستید؟',
+        cancel: true,
         persistent: true
       }).onOk(async () => {
         try {
-          const response = await api.delete(`/targets/${row.id}`)
-
-          if (response.data.success) {
-            $q.notify({
-              type: 'positive',
-              message: 'هدف با موفقیت حذف شد',
-              position: 'top'
-            })
-            await fetchTargets()
-          } else {
-            $q.notify({
-              type: 'negative',
-              message: response.data.message || 'خطا در حذف هدف',
-              position: 'top'
-            })
-          }
+          await api.delete(`/targets/${id}`)
+          $q.notify({ type: 'positive', message: 'هدف با موفقیت حذف شد' })
+          loadData()
         } catch (error) {
-          console.error('Delete target error:', error)
-          $q.notify({
-            type: 'negative',
-            message: error.response?.data?.message || 'خطا در حذف هدف',
-            position: 'top'
-          })
+          $q.notify({ type: 'negative', message: 'خطا در حذف هدف' })
         }
       })
     }
 
+    const openForm = (formCode) => {
+      router.push('/forms')
+    }
+
+    const openReportDialog = (activity) => {
+      reportingActivity.value = activity
+      reportText.value = activity.report || ''
+      reportDialog.value = true
+    }
+
+    const saveReport = async () => {
+      saving.value = true
+      try {
+        await api.put(`/activities/${reportingActivity.value.id}`, {
+          ...reportingActivity.value,
+          report: reportText.value
+        })
+        $q.notify({ type: 'positive', message: 'گزارش با موفقیت ثبت شد' })
+        reportDialog.value = false
+        loadData()
+      } catch (error) {
+        $q.notify({ type: 'negative', message: 'خطا در ثبت گزارش' })
+      } finally {
+        saving.value = false
+      }
+    }
+
+    const viewReport = (activity) => {
+      if (activity.report) {
+        viewingReport.value = activity.report
+      } else {
+        viewingReport.value = 'هنوز گزارشی برای این فعالیت ثبت نشده است.'
+      }
+      viewReportDialog.value = true
+    }
+
+    const openProgramDialog = () => {
+      $q.notify({ type: 'info', message: 'این قابلیت به زودی اضافه می‌شود' })
+    }
+
+    const deleteProgram = () => {
+      $q.notify({ type: 'info', message: 'این قابلیت به زودی اضافه می‌شود' })
+    }
+
+    const openTaskDialog = () => {
+      $q.notify({ type: 'info', message: 'این قابلیت به زودی اضافه می‌شود' })
+    }
+
+    const deleteTask = () => {
+      $q.notify({ type: 'info', message: 'این قابلیت به زودی اضافه می‌شود' })
+    }
+
+    const openActivityDialog = () => {
+      $q.notify({ type: 'info', message: 'این قابلیت به زودی اضافه می‌شود' })
+    }
+
+    const deleteActivity = () => {
+      $q.notify({ type: 'info', message: 'این قابلیت به زودی اضافه می‌شود' })
+    }
+
     // ============================================================
-    // بارگذاری اولیه
+    // تابع برش متن برای نمایش محدود
     // ============================================================
+    const truncateText = (text, maxLength = 50) => {
+      if (!text) return '—'
+      if (text.length <= maxLength) return text
+      return text.substring(0, maxLength) + '...'
+    }
+
     onMounted(() => {
-      fetchTargets()
+      loadUserData()
+      loadData()
     })
 
     return {
-      search,
-      yearFilter,
-      dialog,
-      programsDialog,
-      editing,
-      selectedTarget,
       loading,
       saving,
-      rows,
-      form,
-      targetPrograms,
-      yearOpts,
-      columns,
-      pagination,
-      openDialog,
-      viewPrograms,
-      save,
-      deleteRow,
-      goToPage,
-      handleSearch,
-      handleYearFilter
+      targets,
+      programs,
+      tasks,
+      activities,
+      viewMode,
+      targetDialog,
+      reportDialog,
+      viewReportDialog,
+      editingTarget,
+      targetForm,
+      reportText,
+      viewingReport,
+      isAdmin,
+      unitOptions,
+      targetColumns,
+      programColumns,
+      taskColumns,
+      activityColumns,
+      selectedTargetTitle,
+      selectedProgramTitle,
+      selectedTaskTitle,
+      filteredPrograms,
+      filteredTasks,
+      filteredActivities,
+      getProgramsCount,
+      getTasksCount,
+      getActivitiesCount,
+      openTargetDialog,
+      saveTarget,
+      deleteTarget,
+      openForm,
+      openReportDialog,
+      saveReport,
+      viewReport,
+      openProgramDialog,
+      deleteProgram,
+      openTaskDialog,
+      deleteTask,
+      openActivityDialog,
+      deleteActivity,
+      truncateText
     }
   }
 }
 </script>
 
 <style lang="scss" scoped>
-@import './page-shared.scss';
+@import 'src/pages/page-shared.scss';
 
-.pagination-wrapper {
+.targets-page {
+  padding: 20px;
+}
+
+.content-section {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 20px;
+}
+
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 20px;
-  padding: 10px 0;
+  margin-bottom: 20px;
 
-  .pagination-info {
-    font-size: 13px;
-    color: #64748b;
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
   }
 }
 
-.count-badge { font-size: 12px; color: #64748b; display: flex; align-items: center; }
-.sub-list { display: flex; flex-direction: column; gap: 8px; }
-.sub-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px; border-radius: 10px;
-  background: #f8fafc; border: 1px solid #f1f5f9;
+.data-table {
+  width: 100%;
 }
-.sub-icon {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: #ecfdf5; color: #1e8a5e;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.sub-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.sub-name { font-size: 13px; font-weight: 600; color: #1e293b; }
-.sub-meta { font-size: 11.5px; color: #94a3b8; }
-.empty-programs {
-  text-align: center;
-  padding: 32px;
-  color: #94a3b8;
-  p { margin-top: 8px; font-size: 13px; }
+
+.report-view {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  min-height: 100px;
+  
+  p {
+    margin: 0;
+    line-height: 1.8;
+    color: #334155;
+    white-space: pre-wrap;
+  }
 }
 </style>

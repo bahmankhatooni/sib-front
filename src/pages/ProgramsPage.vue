@@ -24,12 +24,12 @@
     >
       <template #default="{ row, index }">
         <td class="text-center">{{ (pagination.current_page - 1) * pagination.per_page + index + 1 }}</td>
-        <td><code class="code-chip">{{ row.code }}</code></td>
-        <td><span class="row-name">{{ row.title }}</span></td>
+        <td><code class="code-chip">{{ truncateText(row.code, 20) }}</code></td>
+        <td><span class="row-name">{{ truncateText(row.title, 50) }}</span></td>
         <td>
           <div class="target-ref">
-            <code class="code-chip code-sm">{{ row.target?.code || '—' }}</code>
-            <span class="target-title">{{ row.target?.title || '—' }}</span>
+            <code class="code-chip code-sm">{{ truncateText(row.target?.code, 15) }}</code>
+            <span class="target-title">{{ truncateText(row.target?.title, 30) }}</span>
           </div>
         </td>
         <td>
@@ -462,6 +462,15 @@ export default {
     }
 
     // ============================================================
+    // تابع برش متن برای نمایش محدود
+    // ============================================================
+    const truncateText = (text, maxLength = 50) => {
+      if (!text) return '—'
+      if (text.length <= maxLength) return text
+      return text.substring(0, maxLength) + '...'
+    }
+
+    // ============================================================
     // بارگذاری اولیه
     // ============================================================
     onMounted(() => {
@@ -490,7 +499,8 @@ export default {
       deleteRow,
       goToPage,
       handleSearch,
-      handleTargetFilter
+      handleTargetFilter,
+      truncateText
     }
   }
 }

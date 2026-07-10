@@ -3,7 +3,6 @@
   <div class="page-root">
 
     <PageHeader title="مدیریت اقدامات" subtitle="تعریف و مدیریت اقدامات برنامه‌های عملیاتی" icon="checklist_rtl">
-      <q-btn unelevated color="primary" icon="add" label="اقدام جدید" @click="openDialog()" />
     </PageHeader>
 
     <div class="filter-bar">
@@ -45,26 +44,24 @@
     <SortableTable :columns="columns" :rows="rows" empty-icon="checklist_rtl" empty-text="اقدامی یافت نشد" default-sort="title" :loading="loading">
       <template #default="{ row, index }">
         <td class="text-center">{{ (pagination.current_page - 1) * pagination.per_page + index + 1 }}</td>
-        <td><code class="code-chip">{{ row.code }}</code></td>
-        <td><span class="row-name">{{ row.title }}</span></td>
+        <td><code class="code-chip">{{ truncateText(row.code, 20) }}</code></td>
+        <td><span class="row-name">{{ truncateText(row.title, 50) }}</span></td>
         <td>
           <div class="target-ref">
-            <code class="code-chip code-sm">{{ row.target?.code || '—' }}</code>
-            <span class="target-title">{{ row.target?.title || '—' }}</span>
+            <code class="code-chip code-sm">{{ truncateText(row.target?.code, 15) }}</code>
+            <span class="target-title">{{ truncateText(row.target?.title, 30) }}</span>
           </div>
         </td>
         <td>
           <div class="program-ref">
-            <code class="code-chip code-sm">{{ row.program?.code || '—' }}</code>
-            <span class="program-title">{{ row.program?.title || '—' }}</span>
+            <code class="code-chip code-sm">{{ truncateText(row.program?.code, 15) }}</code>
+            <span class="program-title">{{ truncateText(row.program?.title, 30) }}</span>
           </div>
         </td>
         <td><span class="count-badge"><q-icon name="article" size="13px" class="q-ml-xs" />{{ row.activities_count || 0 }}</span></td>
         <td>
           <div class="action-btns">
-            <button class="act-btn act-view"   @click="viewActivities(row)" title="فعالیت‌ها"><q-icon name="list" size="16px" /></button>
-            <button class="act-btn act-edit"   @click="openDialog(row)"     title="ویرایش"><q-icon name="edit" size="16px" /></button>
-            <button class="act-btn act-delete" @click="deleteRow(row)"      title="حذف"><q-icon name="delete_outline" size="16px" /></button>
+            <button class="act-btn act-view" @click="viewActivities(row)" title="فعالیت‌ها"><q-icon name="list" size="16px" /></button>
           </div>
         </td>
       </template>
@@ -540,6 +537,15 @@ export default {
     }
 
     // ============================================================
+    // تابع برش متن برای نمایش محدود
+    // ============================================================
+    const truncateText = (text, maxLength = 50) => {
+      if (!text) return '—'
+      if (text.length <= maxLength) return text
+      return text.substring(0, maxLength) + '...'
+    }
+
+    // ============================================================
     // بارگذاری اولیه
     // ============================================================
     onMounted(() => {
@@ -574,7 +580,8 @@ export default {
       handleSearch,
       handleTargetFilter,
       handleProgramFilter,
-      onTargetChange
+      onTargetChange,
+      truncateText
     }
   }
 }

@@ -3,7 +3,6 @@
   <div class="page-root">
 
     <PageHeader title="مدیریت فعالیت‌ها" subtitle="تعریف و مدیریت فعالیت‌های اقدامات" icon="article">
-      <q-btn unelevated color="primary" icon="add" label="فعالیت جدید" @click="openDialog()" />
     </PageHeader>
 
     <div class="filter-bar">
@@ -24,17 +23,17 @@
     <SortableTable :columns="columns" :rows="rows" empty-icon="article" empty-text="فعالیتی یافت نشد" default-sort="title" :loading="loading">
       <template #default="{ row, index }">
         <td class="text-center">{{ (pagination.current_page - 1) * pagination.per_page + index + 1 }}</td>
-        <td><span class="row-name">{{ row.title }}</span></td>
+        <td><span class="row-name">{{ truncateText(row.title, 50) }}</span></td>
         <td>
           <div class="task-ref">
-            <code class="code-chip code-sm">{{ row.task?.code || '—' }}</code>
-            <span class="task-title">{{ row.task?.title || '—' }}</span>
+            <code class="code-chip code-sm">{{ truncateText(row.task?.code, 15) }}</code>
+            <span class="task-title">{{ truncateText(row.task?.title, 30) }}</span>
           </div>
         </td>
-        <td>{{ row.indicator || '—' }}</td>
-        <td>{{ row.measure || '—' }}</td>
-        <td>{{ row.responsible || '—' }}</td>
-        <td>{{ row.collaborator || '—' }}</td>
+        <td>{{ truncateText(row.indicator, 50) }}</td>
+        <td>{{ truncateText(row.measure, 50) }}</td>
+        <td>{{ truncateText(row.responsible, 50) }}</td>
+        <td>{{ truncateText(row.collaborator, 50) }}</td>
         <td>
           <div class="prog-wrap">
             <div class="prog-track"><div class="prog-fill" :style="{ width: (row.progress || 0) + '%' }"></div></div>
@@ -42,9 +41,37 @@
           </div>
         </td>
         <td>
+          <button 
+            v-if="row.form_code"
+            class="report-btn report-btn--form"
+            @click="openForm(row.form_code)"
+          >
+            {{ row.form_code }}
+          </button>
+          <button 
+            v-else-if="row.report"
+            class="report-btn report-btn--done"
+            @click="viewReport(row)"
+          >
+            اقدام شده
+          </button>
+          <button 
+            v-else
+            class="report-btn report-btn--new"
+            @click="openReportDialog(row)"
+          >
+            ثبت گزارش
+          </button>
+        </td>
+        <td>
           <div class="action-btns">
-            <button class="act-btn act-edit"   @click="openDialog(row)" title="ویرایش"><q-icon name="edit" size="16px" /></button>
-            <button class="act-btn act-delete" @click="deleteRow(row)"  title="حذف"><q-icon name="delete_outline" size="16px" /></button>
+            <button 
+              class="act-btn act-view"   
+              @click="viewReport(row)" 
+              title="نمایش گزارش"
+            >
+              <q-icon name="visibility" size="16px" />
+            </button>
           </div>
         </td>
       </template>
@@ -136,6 +163,50 @@
       </div>
     </q-dialog>
 
+    <!-- دیالوگ ثبت گزارش -->
+    <q-dialog v-model="reportDialog" persistent>
+      <div class="form-dialog">
+        <div class="dialog-head">
+          <h3>ثبت گزارش عملکرد</h3>
+          <button class="dialog-close" @click="reportDialog=false"><q-icon name="close" size="20px" /></button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-group full-width">
+            <label>گزارش عملکرد <span class="req">*</span></label>
+            <q-input 
+              v-model="reportText" 
+              outlined 
+              type="textarea" 
+              rows="5"
+              placeholder="گزارش عملکرد فعالیت را وارد کنید..."
+            />
+          </div>
+        </div>
+        <div class="dialog-foot">
+          <q-btn flat label="انصراف" @click="reportDialog=false" />
+          <q-btn unelevated color="primary" label="ذخیره گزارش" @click="saveReport" :loading="saving" />
+        </div>
+      </div>
+    </q-dialog>
+
+    <!-- دیالوگ نمایش گزارش -->
+    <q-dialog v-model="viewReportDialog" persistent>
+      <div class="form-dialog">
+        <div class="dialog-head">
+          <h3>نمایش گزارش عملکرد</h3>
+          <button class="dialog-close" @click="viewReportDialog=false"><q-icon name="close" size="20px" /></button>
+        </div>
+        <div class="dialog-body">
+          <div class="report-view-box">
+            <p>{{ viewingReport }}</p>
+          </div>
+        </div>
+        <div class="dialog-foot">
+          <q-btn unelevated color="primary" label="بستن" @click="viewReportDialog=false" />
+        </div>
+      </div>
+    </q-dialog>
+
   </div>
 </template>
 
@@ -152,11 +223,16 @@ export default {
     const $q = useQuasar()
     const search = ref('')
     const dialog = ref(false)
+    const reportDialog = ref(false)
+    const viewReportDialog = ref(false)
     const editing = ref(null)
     const loading = ref(false)
     const saving = ref(false)
     const rows = ref([])
     const taskOpts = ref([])
+    const reportText = ref('')
+    const reportingActivity = ref(null)
+    const viewingReport = ref('')
 
     // Pagination state
     const pagination = ref({
@@ -175,6 +251,7 @@ export default {
       { key: 'responsible', label: 'مجری', sortable: true },
       { key: 'collaborator', label: 'همکار', sortable: true },
       { key: 'progress', label: 'پیشرفت', sortable: true },
+      { key: 'report', label: 'گزارش عملکرد / کاربرگ', sortable: false },
       { key: 'actions', label: 'عملیات', sortable: false },
     ]
 
@@ -409,6 +486,15 @@ export default {
     }
 
     // ============================================================
+    // تابع برش متن برای نمایش محدود
+    // ============================================================
+    const truncateText = (text, maxLength = 50) => {
+      if (!text) return '—'
+      if (text.length <= maxLength) return text
+      return text.substring(0, maxLength) + '...'
+    }
+
+    // ============================================================
     // بارگذاری اولیه
     // ============================================================
     onMounted(() => {
@@ -416,22 +502,111 @@ export default {
       fetchActivities()
     })
 
+    // ============================================================
+    // باز کردن دیالوگ ثبت گزارش
+    // ============================================================
+    const openReportDialog = (row) => {
+      reportingActivity.value = row
+      reportText.value = row.report || ''
+      reportDialog.value = true
+    }
+
+    // ============================================================
+    // ذخیره گزارش
+    // ============================================================
+    const saveReport = async () => {
+      if (!reportText.value || !reportText.value.trim()) {
+        $q.notify({
+          type: 'negative',
+          message: 'لطفاً متن گزارش را وارد کنید',
+          position: 'top'
+        })
+        return
+      }
+
+      saving.value = true
+      try {
+        const response = await api.put(`/activities/${reportingActivity.value.id}`, {
+          ...reportingActivity.value,
+          report: reportText.value
+        })
+
+        if (response.data.success) {
+          $q.notify({
+            type: 'positive',
+            message: 'گزارش با موفقیت ثبت شد',
+            position: 'top'
+          })
+          reportDialog.value = false
+          await fetchActivities()
+        } else {
+          $q.notify({
+            type: 'negative',
+            message: response.data.message || 'خطا در ثبت گزارش',
+            position: 'top'
+          })
+        }
+      } catch (error) {
+        console.error('Save report error:', error)
+        $q.notify({
+          type: 'negative',
+          message: error.response?.data?.message || 'خطا در ثبت گزارش',
+          position: 'top'
+        })
+      } finally {
+        saving.value = false
+      }
+    }
+
+    // ============================================================
+    // نمایش گزارش
+    // ============================================================
+    const viewReport = (row) => {
+      if (row.report) {
+        viewingReport.value = row.report
+      } else {
+        viewingReport.value = 'هنوز گزارشی برای این فعالیت ثبت نشده است.'
+      }
+      viewReportDialog.value = true
+    }
+
+    // ============================================================
+    // باز کردن فرم
+    // ============================================================
+    const openForm = (formCode) => {
+      $q.notify({
+        type: 'info',
+        message: `باز کردن کاربرگ ${formCode}`,
+        position: 'top'
+      })
+      // اینجا می‌توانید به صفحه فرم‌ها هدایت کنید
+    }
+
     return {
       search,
       dialog,
+      reportDialog,
+      viewReportDialog,
       editing,
       loading,
       saving,
       rows,
       form,
       taskOpts,
+      reportText,
+      viewingReport,
       columns,
       pagination,
       openDialog,
       save,
       deleteRow,
       goToPage,
-      handleSearch
+      handleSearch,
+      openReportDialog,
+      saveReport,
+      viewReport,
+      openForm,
+      truncateText
     }
   }
 }
@@ -466,5 +641,70 @@ export default {
 .form-group.full-width {
   grid-column: 1 / -1;
   width: 100%;
+}
+
+.report-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &--form {
+    background: #e0f2fe;
+    color: #0284c7;
+    border: 1px solid #7dd3fc;
+    
+    &:hover {
+      background: #bae6fd;
+    }
+  }
+  
+  &--done {
+    background: #d1fae5;
+    color: #059669;
+    border: 1px solid #6ee7b7;
+    
+    &:hover {
+      background: #a7f3d0;
+    }
+  }
+  
+  &--new {
+    background: #fef3c7;
+    color: #d97706;
+    border: 1px solid #fde047;
+    
+    &:hover {
+      background: #fde68a;
+    }
+  }
+}
+
+.act-view {
+  background: #e0f2fe !important;
+  color: #0284c7 !important;
+  
+  &:hover {
+    background: #bae6fd !important;
+  }
+}
+
+.report-view-box {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  min-height: 120px;
+  
+  p {
+    margin: 0;
+    line-height: 1.8;
+    color: #334155;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
 }
 </style>
